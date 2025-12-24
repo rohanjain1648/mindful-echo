@@ -16,12 +16,22 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Info
+  Info,
+  Copy,
+  Twitter,
+  Linkedin,
+  MessageCircle
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ReportData {
   overall_sentiment_score: number;
@@ -99,6 +109,51 @@ const ReportPage = () => {
       toast.error("Failed to export PDF. Please try again.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const shareUrl = window.location.href;
+  const shareTitle = "My Wellness Assessment Report";
+  const shareText = `Check out my wellness assessment results! Overall score: ${Math.round((reportData?.overall_sentiment_score || 0.68) * 100)}%`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleShareTwitter = () => {
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(url, '_blank', 'width=550,height=420');
+  };
+
+  const handleShareLinkedIn = () => {
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+    window.open(url, '_blank', 'width=550,height=420');
+  };
+
+  const handleShareWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        // User cancelled or share failed
+        console.log('Share cancelled');
+      }
+    } else {
+      handleCopyLink();
     }
   };
 
@@ -235,10 +290,32 @@ const ReportPage = () => {
               )}
               {isExporting ? "Exporting..." : "Export PDF"}
             </Button>
-            <Button variant="outline" size="sm">
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer">
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareTwitter} className="cursor-pointer">
+                  <Twitter className="w-4 h-4 mr-2" />
+                  Share on X
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareLinkedIn} className="cursor-pointer">
+                  <Linkedin className="w-4 h-4 mr-2" />
+                  Share on LinkedIn
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareWhatsApp} className="cursor-pointer">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Share on WhatsApp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
