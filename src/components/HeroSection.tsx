@@ -44,7 +44,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "100ms" }}
             >
               Your Voice-First
-              <span className="text-gradient block">ADHD Companion</span>
+              <span className="text-gradient block">Mental Health Companion</span>
             </h1>
 
             {/* Subheadline */}
@@ -123,7 +123,7 @@ export const HeroSection = () => {
                     ))}
                   </div>
                   <p className="text-sm text-muted-foreground italic">
-                    "Finally, an AI that actually understands mental health. The voice conversations feel natural and
+                    "Finally, an AI that actually understands ADHD. The voice conversations feel natural and
                     supportive."
                   </p>
                   <div className="flex items-center gap-2 mt-3">
