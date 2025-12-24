@@ -116,6 +116,180 @@ export type Database = {
         }
         Relationships: []
       }
+      companion_memories: {
+        Row: {
+          content: string
+          created_at: string
+          emotional_context: string | null
+          id: string
+          importance_score: number | null
+          last_referenced_at: string | null
+          memory_type: string
+          reference_count: number | null
+          source_session_id: string | null
+          tags: string[] | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          emotional_context?: string | null
+          id?: string
+          importance_score?: number | null
+          last_referenced_at?: string | null
+          memory_type: string
+          reference_count?: number | null
+          source_session_id?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          emotional_context?: string | null
+          id?: string
+          importance_score?: number | null
+          last_referenced_at?: string | null
+          memory_type?: string
+          reference_count?: number | null
+          source_session_id?: string | null
+          tags?: string[] | null
+        }
+        Relationships: []
+      }
+      companion_messages: {
+        Row: {
+          content: string
+          created_at: string
+          emotion_detected: string | null
+          id: string
+          is_significant: boolean | null
+          role: string
+          sentiment_score: number | null
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          emotion_detected?: string | null
+          id?: string
+          is_significant?: boolean | null
+          role: string
+          sentiment_score?: number | null
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          emotion_detected?: string | null
+          id?: string
+          is_significant?: boolean | null
+          role?: string
+          sentiment_score?: number | null
+          session_id?: string
+        }
+        Relationships: []
+      }
+      companion_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          messages_count: number | null
+          mood_summary: string | null
+          session_id: string
+          started_at: string
+          topics_discussed: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          messages_count?: number | null
+          mood_summary?: string | null
+          session_id: string
+          started_at?: string
+          topics_discussed?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          messages_count?: number | null
+          mood_summary?: string | null
+          session_id?: string
+          started_at?: string
+          topics_discussed?: string[] | null
+        }
+        Relationships: []
+      }
+      companion_strategies: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          effectiveness_rating: number | null
+          id: string
+          last_used_at: string | null
+          strategy_name: string
+          times_successful: number | null
+          times_suggested: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          effectiveness_rating?: number | null
+          id?: string
+          last_used_at?: string | null
+          strategy_name: string
+          times_successful?: number | null
+          times_suggested?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          effectiveness_rating?: number | null
+          id?: string
+          last_used_at?: string | null
+          strategy_name?: string
+          times_successful?: number | null
+          times_suggested?: number | null
+        }
+        Relationships: []
+      }
+      grounding_exercises: {
+        Row: {
+          audio_cues: string[] | null
+          category: string
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          instructions: Json
+          name: string
+          suitable_for: string[] | null
+        }
+        Insert: {
+          audio_cues?: string[] | null
+          category: string
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          instructions: Json
+          name: string
+          suitable_for?: string[] | null
+        }
+        Update: {
+          audio_cues?: string[] | null
+          category?: string
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          instructions?: Json
+          name?: string
+          suitable_for?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
