@@ -76,6 +76,8 @@ export const useVoiceAssessment = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isProcessingRef = useRef(false);
+  const isCompleteRef = useRef(false);
+  const startListeningRef = useRef<(() => void) | null>(null);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -124,8 +126,10 @@ export const useVoiceAssessment = () => {
     setIsAssistantSpeaking(false);
   }, []);
 
-  const playAudio = useCallback(async (base64Audio: string) => {
+  const playAudio = useCallback(async (base64Audio: string, shouldListenAfter: boolean = true) => {
     stopAudio();
+    
+    console.log('[VoiceAssessment] Playing audio, will listen after:', shouldListenAfter);
     
     const audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
     const audio = new Audio(audioUrl);
@@ -134,26 +138,26 @@ export const useVoiceAssessment = () => {
 
     setIsAssistantSpeaking(true);
 
-    audio.onended = () => {
-      setIsAssistantSpeaking(false);
-      // Start listening after assistant finishes
-      if (status === 'active' && !isComplete) {
-        startListening();
-      }
-    };
+    return new Promise<void>((resolve) => {
+      audio.onended = () => {
+        console.log('[VoiceAssessment] Audio ended, shouldListenAfter:', shouldListenAfter);
+        setIsAssistantSpeaking(false);
+        resolve();
+      };
 
-    audio.onerror = () => {
-      setIsAssistantSpeaking(false);
-      console.error('Audio playback error');
-    };
+      audio.onerror = (e) => {
+        console.error('[VoiceAssessment] Audio playback error:', e);
+        setIsAssistantSpeaking(false);
+        resolve();
+      };
 
-    try {
-      await audio.play();
-    } catch (err) {
-      console.error('Failed to play audio:', err);
-      setIsAssistantSpeaking(false);
-    }
-  }, [speechRate, status, isComplete]);
+      audio.play().catch((err) => {
+        console.error('[VoiceAssessment] Failed to play audio:', err);
+        setIsAssistantSpeaking(false);
+        resolve();
+      });
+    });
+  }, [speechRate, stopAudio]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -223,11 +227,18 @@ export const useVoiceAssessment = () => {
       // Check if complete
       if (data.isComplete) {
         setIsComplete(true);
+        isCompleteRef.current = true;
       }
 
       // Play audio response
       if (data.audioContent) {
         await playAudio(data.audioContent);
+        
+        // Start listening after audio ends (if not complete)
+        if (!data.isComplete) {
+          console.log('[VoiceAssessment] Audio finished, starting to listen...');
+          startListeningRef.current?.();
+        }
       }
 
     } catch (err) {
@@ -243,16 +254,27 @@ export const useVoiceAssessment = () => {
   }, [selectedLanguage, selectedVoice, playAudio, toast]);
 
   const startListening = useCallback(() => {
+    console.log('[VoiceAssessment] Starting speech recognition...');
+    
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.error('[VoiceAssessment] Speech recognition not supported');
       toast({
         title: 'Not Supported',
-        description: 'Speech recognition is not supported in this browser.',
+        description: 'Speech recognition is not supported in this browser. Please use Chrome.',
         variant: 'destructive',
       });
       return;
     }
 
-    stopListening();
+    // Stop any existing recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore
+      }
+      recognitionRef.current = null;
+    }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
@@ -270,10 +292,13 @@ export const useVoiceAssessment = () => {
                        selectedLanguage?.code === 'ml' ? 'ml-IN' :
                        selectedLanguage?.code === 'pa' ? 'pa-IN' : 'en-US';
 
+    console.log('[VoiceAssessment] Recognition language:', recognition.lang);
+
     let finalTranscript = '';
-    let silenceTimeout: NodeJS.Timeout;
+    let silenceTimeout: ReturnType<typeof setTimeout>;
 
     recognition.onstart = () => {
+      console.log('[VoiceAssessment] Recognition started');
       setIsUserSpeaking(true);
     };
 
@@ -281,43 +306,90 @@ export const useVoiceAssessment = () => {
       let interim = '';
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+        const text = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
+          finalTranscript += text + ' ';
+          console.log('[VoiceAssessment] Final transcript:', text);
         } else {
-          interim += transcript;
+          interim += text;
+          console.log('[VoiceAssessment] Interim:', text);
         }
       }
 
-      // Reset silence timeout
+      // Reset silence timeout - send message after 2 seconds of silence
       clearTimeout(silenceTimeout);
       silenceTimeout = setTimeout(() => {
         if (finalTranscript.trim()) {
-          stopListening();
-          sendMessage(finalTranscript.trim());
+          console.log('[VoiceAssessment] Silence detected, sending message:', finalTranscript.trim());
+          const messageToSend = finalTranscript.trim();
           finalTranscript = '';
+          
+          // Stop recognition before sending
+          try {
+            recognition.stop();
+          } catch (e) {
+            // Ignore
+          }
+          
+          sendMessage(messageToSend);
         }
-      }, 2000); // 2 seconds of silence
+      }, 2000);
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error !== 'no-speech') {
+      console.error('[VoiceAssessment] Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        // Restart on no speech after a brief delay
+        setTimeout(() => {
+          if (recognitionRef.current === recognition) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.log('[VoiceAssessment] Could not restart recognition');
+            }
+          }
+        }, 100);
+      } else if (event.error === 'aborted') {
+        // User or system aborted, this is fine
         setIsUserSpeaking(false);
+      } else {
+        setIsUserSpeaking(false);
+        toast({
+          title: 'Microphone Error',
+          description: `Speech recognition error: ${event.error}. Please try again.`,
+          variant: 'destructive',
+        });
       }
     };
 
     recognition.onend = () => {
+      console.log('[VoiceAssessment] Recognition ended');
       setIsUserSpeaking(false);
+      clearTimeout(silenceTimeout);
+      
+      // If there's remaining transcript, send it
       if (finalTranscript.trim()) {
+        console.log('[VoiceAssessment] Sending remaining transcript on end:', finalTranscript.trim());
         sendMessage(finalTranscript.trim());
         finalTranscript = '';
       }
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-  }, [selectedLanguage, stopListening, sendMessage, toast]);
+    
+    try {
+      recognition.start();
+      console.log('[VoiceAssessment] Recognition start() called');
+    } catch (err) {
+      console.error('[VoiceAssessment] Failed to start recognition:', err);
+      setIsUserSpeaking(false);
+    }
+  }, [selectedLanguage, sendMessage, toast]);
+
+  // Keep the ref updated so callbacks can access startListening
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
 
   const startSession = useCallback(async () => {
     setStatus('connecting');
@@ -326,6 +398,7 @@ export const useVoiceAssessment = () => {
     messagesRef.current = [];
     sessionIdRef.current = crypto.randomUUID();
     setIsComplete(false);
+    isCompleteRef.current = false;
 
     try {
       // Get initial greeting from AI
@@ -363,9 +436,11 @@ export const useVoiceAssessment = () => {
 
       setStatus('active');
 
-      // Play greeting audio
+      // Play greeting audio then start listening
       if (data.audioContent) {
         await playAudio(data.audioContent);
+        console.log('[VoiceAssessment] Greeting finished, starting to listen...');
+        startListeningRef.current?.();
       }
 
     } catch (err) {
