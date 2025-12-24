@@ -6,12 +6,6 @@ import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
 
 export const HeroSection = () => {
-  const stats = [
-    { value: "10K+", label: "Users Helped" },
-    { value: "98%", label: "Satisfaction" },
-    { value: "24/7", label: "AI Support" },
-  ];
-
   const highlights = [
     "Evidence-based ADHD strategies",
     "Private & secure conversations",
@@ -90,18 +84,6 @@ export const HeroSection = () => {
               </Button>
             </div>
 
-            {/* Stats */}
-            <div 
-              className="flex items-center gap-8 pt-4 animate-fade-in-up"
-              style={{ animationDelay: "500ms" }}
-            >
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="font-display text-2xl font-bold text-foreground">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Right Content - Voice Interface Preview */}
