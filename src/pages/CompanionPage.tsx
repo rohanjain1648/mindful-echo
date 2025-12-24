@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { VoiceOrb } from "@/components/VoiceOrb";
@@ -10,7 +10,6 @@ import {
   History, 
   Sparkles, 
   MessageCircle, 
-  BookOpen,
   Shield,
   Home,
   Volume2,
@@ -22,21 +21,23 @@ import {
   Heart,
   Target,
   X,
-  ChevronRight
+  Mic,
+  MicOff,
+  Keyboard
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCompanion } from "@/hooks/useCompanion";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 const CompanionPage = () => {
   const [textInput, setTextInput] = useState("");
-  const [showTextInput, setShowTextInput] = useState(false);
+  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
   const [autoSpeak, setAutoSpeak] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
     messages,
     memories,
-    exercises,
     isLoading,
     isSpeaking,
     currentExercise,
@@ -46,6 +47,21 @@ const CompanionPage = () => {
     getExercise,
     clearExercise,
   } = useCompanion();
+
+  // Voice recorder with transcript callback
+  const handleTranscript = useCallback(async (text: string) => {
+    if (text.trim()) {
+      await sendMessage(text);
+    }
+  }, [sendMessage]);
+
+  const { 
+    isRecording, 
+    isTranscribing, 
+    toggleRecording 
+  } = useVoiceRecorder({
+    onTranscript: handleTranscript,
+  });
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -108,7 +124,7 @@ const CompanionPage = () => {
     await sendMessage(`I'd like to try a ${label.toLowerCase()} exercise`);
   };
 
-  const latestMessage = messages[messages.length - 1];
+  const isProcessing = isLoading || isTranscribing;
 
   return (
     <div className="min-h-screen bg-background gradient-calm flex flex-col">
@@ -153,9 +169,9 @@ const CompanionPage = () => {
         {/* Companion Status */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-destructive' : 'bg-primary'} animate-pulse`} />
             <span className="text-sm font-medium text-primary">
-              {isSpeaking ? 'Speaking...' : isLoading ? 'Thinking...' : 'Companion Active'}
+              {isRecording ? 'Listening...' : isTranscribing ? 'Transcribing...' : isSpeaking ? 'Speaking...' : isLoading ? 'Thinking...' : 'Companion Active'}
             </span>
           </div>
           <h1 className="font-display text-xl font-bold text-foreground mb-1">
@@ -260,12 +276,14 @@ const CompanionPage = () => {
                   </div>
                 </div>
               ))}
-              {isLoading && (
+              {(isLoading || isTranscribing) && (
                 <div className="flex justify-start">
                   <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      <span className="text-sm text-muted-foreground">Thinking...</span>
+                      <span className="text-sm text-muted-foreground">
+                        {isTranscribing ? 'Transcribing your voice...' : 'Thinking...'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -275,55 +293,90 @@ const CompanionPage = () => {
           </ScrollArea>
         </Card>
 
-        {/* Voice Interface */}
+        {/* Input Interface */}
         <div className="flex flex-col items-center mb-4">
-          {!showTextInput ? (
+          {inputMode === 'voice' ? (
             <>
-              <VoiceOrb
-                isListening={false}
-                isSpeaking={isSpeaking}
-                onStart={() => setShowTextInput(true)}
-                onStop={stopSpeaking}
-                size="md"
-              />
+              {/* Voice Input Mode */}
+              <div className="relative">
+                <VoiceOrb
+                  isListening={isRecording}
+                  isSpeaking={isSpeaking || isTranscribing}
+                  onStart={toggleRecording}
+                  onStop={toggleRecording}
+                  size="lg"
+                />
+                {isRecording && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                    <span className="text-xs text-destructive font-medium animate-pulse">
+                      Tap to stop recording
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-4 mt-8">
+                <p className="text-muted-foreground text-sm">
+                  {isRecording 
+                    ? 'Listening... Tap when done' 
+                    : isTranscribing 
+                    ? 'Processing your voice...'
+                    : 'Tap to speak'}
+                </p>
+              </div>
+
               <Button
                 variant="ghost"
-                className="mt-2 text-xs"
-                onClick={() => setShowTextInput(true)}
+                className="mt-4 text-xs"
+                onClick={() => setInputMode('text')}
+                disabled={isRecording || isTranscribing}
               >
-                <MessageCircle className="w-3 h-3 mr-1" />
+                <Keyboard className="w-3 h-3 mr-1" />
                 Type instead
               </Button>
             </>
           ) : (
-            <div className="w-full">
-              <div className="relative">
-                <Textarea
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Share what's on your mind..."
-                  className="min-h-[80px] pr-12 resize-none"
-                  disabled={isLoading}
-                />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="absolute bottom-2 right-2"
-                  onClick={handleSendMessage}
-                  disabled={!textInput.trim() || isLoading}
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
+            <>
+              {/* Text Input Mode */}
+              <div className="w-full">
+                <div className="relative">
+                  <Textarea
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Share what's on your mind..."
+                    className="min-h-[80px] pr-24 resize-none"
+                    disabled={isProcessing}
+                  />
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setInputMode('voice')}
+                      disabled={isProcessing}
+                      title="Switch to voice"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleSendMessage}
+                      disabled={!textInput.trim() || isProcessing}
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Press Enter to send • Click <Mic className="w-3 h-3 inline" /> for voice
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Press Enter to send
-              </p>
-            </div>
+            </>
           )}
         </div>
 
@@ -333,7 +386,7 @@ const CompanionPage = () => {
             <button
               key={action.label}
               onClick={() => handleQuickAction(action.label, action.action)}
-              disabled={isLoading}
+              disabled={isProcessing || isRecording}
               className="p-3 rounded-xl bg-card border border-border hover:border-primary/30 hover:shadow-soft transition-all duration-300 text-center group disabled:opacity-50"
             >
               <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-primary mx-auto mb-2 group-hover:gradient-hero group-hover:text-primary-foreground transition-all duration-300">
