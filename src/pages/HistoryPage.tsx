@@ -4,7 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { ArrowLeft, Calendar, Clock, FileText, ChevronRight, MessageSquare } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, FileText, ChevronRight, MessageSquare, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -51,6 +63,7 @@ const HistoryPage = () => {
   const [reports, setReports] = useState<Record<string, AssessmentReport>>({});
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [deletingSession, setDeletingSession] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -119,6 +132,36 @@ const HistoryPage = () => {
     } else {
       setExpandedSession(sessionId);
       fetchResponses(sessionId);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    setDeletingSession(sessionId);
+    try {
+      // Delete related data first (responses, reports)
+      await supabase.from("assessment_responses").delete().eq("session_id", sessionId);
+      await supabase.from("assessment_reports").delete().eq("session_id", sessionId);
+      await supabase.from("assessment_sessions").delete().eq("session_id", sessionId);
+
+      // Update local state
+      setSessions(prev => prev.filter(s => s.session_id !== sessionId));
+      setResponses(prev => {
+        const updated = { ...prev };
+        delete updated[sessionId];
+        return updated;
+      });
+      setReports(prev => {
+        const updated = { ...prev };
+        delete updated[sessionId];
+        return updated;
+      });
+
+      toast.success("Session deleted successfully");
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      toast.error("Failed to delete session");
+    } finally {
+      setDeletingSession(null);
     }
   };
 
@@ -223,7 +266,7 @@ const HistoryPage = () => {
                           </CardDescription>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3">
                         {reports[session.session_id] && (
                           <Button
                             variant="outline"
@@ -237,6 +280,36 @@ const HistoryPage = () => {
                             View Report
                           </Button>
                         )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={deletingSession === session.session_id}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete this session?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the assessment session, all responses, and the report. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => handleDeleteSession(session.session_id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <ChevronRight 
                           className={`w-5 h-5 text-muted-foreground transition-transform ${
                             expandedSession === session.session_id ? "rotate-90" : ""
