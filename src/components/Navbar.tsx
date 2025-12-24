@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Brain, Menu, X, LogOut, Shield, User } from "lucide-react";
+import { Brain, Menu, X, LogOut, Shield, User, History } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
@@ -74,6 +74,10 @@ export const Navbar = () => {
                     <User className="w-4 h-4 mr-2" />
                     Profile
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/history')}>
+                    <History className="w-4 h-4 mr-2" />
+                    History
+                  </DropdownMenuItem>
                   {(isAdmin || isModerator) && (
                     <>
                       <DropdownMenuSeparator />
@@ -136,6 +140,12 @@ export const Navbar = () => {
                       <Button variant="outline" className="w-full gap-2">
                         <User className="w-4 h-4" />
                         Profile
+                      </Button>
+                    </Link>
+                    <Link to="/history" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" className="w-full gap-2">
+                        <History className="w-4 h-4" />
+                        History
                       </Button>
                     </Link>
                     {(isAdmin || isModerator) && (
