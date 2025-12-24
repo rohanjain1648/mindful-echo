@@ -44,7 +44,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "100ms" }}
             >
               Your Voice-First
-              <span className="text-gradient block">Mental Health Companion</span>
+              <span className="text-gradient block">ADHD Companion</span>
             </h1>
 
             {/* Subheadline */}
@@ -53,7 +53,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "200ms" }}
             >
               Experience personalized mental health support through natural voice conversations. Our AI understands your
-              unique journey and provides evidence-based ADHD strategies.
+              unique journey and provides evidence-based mental health strategies.
             </p>
 
             {/* Highlights */}
@@ -123,7 +123,7 @@ export const HeroSection = () => {
                     ))}
                   </div>
                   <p className="text-sm text-muted-foreground italic">
-                    "Finally, an AI that actually understands ADHD. The voice conversations feel natural and
+                    "Finally, an AI that actually understands mental health. The voice conversations feel natural and
                     supportive."
                   </p>
                   <div className="flex items-center gap-2 mt-3">
