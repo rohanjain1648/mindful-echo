@@ -5,6 +5,87 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ShieldGemma-inspired safety policies for content moderation
+const SAFETY_POLICIES = `
+You are a content safety classifier. Evaluate the user input against these safety policies:
+
+1. "No Dangerous Content": Content shall not contain or seek generation of content that harms oneself and/or others (e.g., firearms, explosives, terrorism, suicide instructions, self-harm methods).
+
+2. "No Harassment": Content shall not contain malicious, intimidating, bullying, or abusive content targeting individuals (e.g., physical threats, disparaging victims).
+
+3. "No Hate Speech": Content shall not target identity/protected attributes or dehumanize based on race, ethnicity, religion, disability, age, nationality, sexual orientation, gender, etc.
+
+4. "No Sexually Explicit Information": Content shall not contain sexually explicit material (medical/health terms are permitted).
+
+5. "Crisis Safety": Flag if content indicates immediate crisis (active suicidal ideation with plan, self-harm in progress).
+
+IMPORTANT - MENTAL HEALTH CONTEXT:
+- Users may discuss emotions, struggles, mental health challenges - this is ACCEPTABLE
+- Discussing ADHD, anxiety, depression, past trauma is ACCEPTABLE
+- Expressions of frustration, sadness, difficulty are ACCEPTABLE
+- Only flag content seeking to HARM self/others or containing hate/harassment
+
+Respond with JSON:
+{
+  "is_safe": boolean,
+  "confidence": 0.0-1.0,
+  "violated_policies": ["policy names if violated"],
+  "risk_level": "none" | "low" | "medium" | "high" | "critical",
+  "is_crisis": boolean,
+  "reason": "Brief explanation if flagged",
+  "safe_response_suggestion": "Compassionate redirect if flagged"
+}
+`;
+
+// Content safety check function
+async function checkContentSafety(content: string, apiKey: string): Promise<{
+  is_safe: boolean;
+  confidence: number;
+  violated_policies: string[];
+  risk_level: string;
+  is_crisis: boolean;
+  reason: string;
+  safe_response_suggestion: string;
+}> {
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: SAFETY_POLICIES },
+          { role: 'user', content: `Evaluate this user input for safety:\n\n"${content}"` }
+        ],
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Safety check failed:', response.status);
+      return { is_safe: true, confidence: 0, violated_policies: [], risk_level: "none", is_crisis: false, reason: "", safe_response_suggestion: "" };
+    }
+
+    const data = await response.json();
+    return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+  } catch (error) {
+    console.error('Safety check error:', error);
+    return { is_safe: true, confidence: 0, violated_policies: [], risk_level: "none", is_crisis: false, reason: "", safe_response_suggestion: "" };
+  }
+}
+
+const CRISIS_RESOURCES = {
+  message: "I care about your wellbeing. If you're in crisis, please reach out for immediate support:",
+  resources: [
+    { name: "988 Suicide & Crisis Lifeline", contact: "Call or text 988", region: "US" },
+    { name: "Crisis Text Line", contact: "Text HOME to 741741", region: "US" },
+    { name: "International Association for Suicide Prevention", contact: "https://www.iasp.info/resources/Crisis_Centres/", region: "International" }
+  ]
+};
+
 // ADHD Knowledge Base extracted from the PDF
 const ADHD_KNOWLEDGE_BASE = `
 # ADHD PATTERNS AND CATEGORIES:
@@ -275,6 +356,55 @@ serve(async (req) => {
     }
 
     if (action === 'process_response') {
+      // Check content safety BEFORE processing
+      console.log('Checking safety for assessment response:', userResponse?.substring(0, 50));
+      const safetyResult = await checkContentSafety(userResponse, LOVABLE_API_KEY);
+      
+      // Handle crisis situations with resources
+      if (safetyResult.is_crisis) {
+        console.log('Crisis detected in assessment, providing resources');
+        const nextQuestion = questionIndex < ASSESSMENT_QUESTIONS.length - 1 
+          ? ASSESSMENT_QUESTIONS[questionIndex + 1] 
+          : null;
+          
+        return new Response(JSON.stringify({
+          acknowledgment: `${safetyResult.safe_response_suggestion || "I hear that you're going through something really difficult."} ${CRISIS_RESOURCES.message}`,
+          sentiment: "concerned",
+          sentiment_score: 0.3,
+          emotion_detected: "distress",
+          patterns_observed: ["crisis_support_needed"],
+          category_relevance: "high",
+          is_crisis: true,
+          crisis_resources: CRISIS_RESOURCES.resources,
+          nextQuestion,
+          isComplete: questionIndex >= ASSESSMENT_QUESTIONS.length - 1
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Block harmful content
+      if (!safetyResult.is_safe && safetyResult.risk_level !== 'low') {
+        console.log('Harmful content blocked in assessment:', safetyResult.violated_policies);
+        const nextQuestion = questionIndex < ASSESSMENT_QUESTIONS.length - 1 
+          ? ASSESSMENT_QUESTIONS[questionIndex + 1] 
+          : null;
+          
+        return new Response(JSON.stringify({
+          acknowledgment: safetyResult.safe_response_suggestion || "Let's refocus on understanding your experiences. Would you like to share more about how you've been feeling?",
+          sentiment: "neutral",
+          sentiment_score: 0.5,
+          emotion_detected: "neutral",
+          patterns_observed: [],
+          category_relevance: "low",
+          content_blocked: true,
+          nextQuestion,
+          isComplete: questionIndex >= ASSESSMENT_QUESTIONS.length - 1
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const currentQuestion = ASSESSMENT_QUESTIONS[questionIndex];
       
       // Build context from conversation history
