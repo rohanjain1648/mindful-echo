@@ -244,51 +244,66 @@ serve(async (req) => {
       const assistantText = aiData.choices?.[0]?.message?.content || '';
 
       // Generate TTS for the response
-      const ttsResponse = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || selectedLanguage.voiceId}`,
-        {
-          method: 'POST',
-          headers: {
-            'xi-api-key': ELEVENLABS_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: assistantText,
-            model_id: 'eleven_multilingual_v2',
-            output_format: 'mp3_44100_128',
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              style: 0.4,
-              use_speaker_boost: true,
+      let base64Audio = null;
+      try {
+        const ttsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || selectedLanguage.voiceId}`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVENLABS_API_KEY,
+              'Content-Type': 'application/json',
             },
-          }),
-        }
-      );
+            body: JSON.stringify({
+              text: assistantText,
+              model_id: 'eleven_multilingual_v2',
+              output_format: 'mp3_44100_128',
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+                style: 0.4,
+                use_speaker_boost: true,
+              },
+            }),
+          }
+        );
 
-      if (!ttsResponse.ok) {
-        console.error('TTS error:', ttsResponse.status);
-        // Return text without audio if TTS fails
-        return new Response(JSON.stringify({ 
-          text: assistantText,
-          audioContent: null,
-          error: 'TTS generation failed'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        if (ttsResponse.ok) {
+          const audioBuffer = await ttsResponse.arrayBuffer();
+          base64Audio = base64Encode(audioBuffer);
+        } else {
+          console.error('TTS error:', ttsResponse.status, await ttsResponse.text());
+        }
+      } catch (ttsError) {
+        console.error('TTS failed:', ttsError);
       }
 
-      const audioBuffer = await ttsResponse.arrayBuffer();
-      const base64Audio = base64Encode(audioBuffer);
+      // Check if assessment is complete (after 20 questions = ~40 messages)
+      const messageCount = messages.length;
+      const isComplete = messageCount >= 40 || 
+                        assistantText.toLowerCase().includes('would you like to see your') ||
+                        (assistantText.toLowerCase().includes('report') && messageCount >= 38);
 
-      // Check if assessment is complete
-      const isComplete = assistantText.toLowerCase().includes('would you like to see your') ||
-                        assistantText.toLowerCase().includes('report') && messages.length >= 40;
+      // Analyze sentiment of the last user message (-1, 0, +1)
+      let sentiment = 0; // neutral by default
+      const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content?.toLowerCase() || '';
+      
+      // Simple sentiment keywords
+      const positiveWords = ['good', 'great', 'well', 'fine', 'okay', 'better', 'easy', 'rarely', 'sometimes'];
+      const negativeWords = ['bad', 'hard', 'difficult', 'struggle', 'always', 'never', 'terrible', 'awful', 'constantly', 'often'];
+      
+      const posCount = positiveWords.filter(w => lastUserMessage.includes(w)).length;
+      const negCount = negativeWords.filter(w => lastUserMessage.includes(w)).length;
+      
+      if (posCount > negCount) sentiment = 1;
+      else if (negCount > posCount) sentiment = -1;
 
       return new Response(JSON.stringify({ 
         text: assistantText,
         audioContent: base64Audio,
         isComplete,
+        sentiment,
+        questionIndex: Math.floor(messageCount / 2),
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
