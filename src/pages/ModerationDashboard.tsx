@@ -17,9 +17,11 @@ import {
   MessageSquare,
   FileText,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import {
   LineChart,
   Line,
@@ -69,11 +71,34 @@ interface DailyMetrics {
 
 const ModerationDashboard = () => {
   const navigate = useNavigate();
+  const { user, loading: authLoading, isAdmin, isModerator } = useAuth();
   const [logs, setLogs] = useState<ModerationLog[]>([]);
   const [metrics, setMetrics] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'blocked' | 'crisis' | 'unresolved'>('all');
+
+  // Redirect if not admin/moderator
+  useEffect(() => {
+    if (!authLoading && (!user || (!isAdmin && !isModerator))) {
+      toast.error('Access denied. Admin or moderator role required.');
+      navigate('/');
+    }
+  }, [authLoading, user, isAdmin, isModerator, navigate]);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if not authorized
+  if (!user || (!isAdmin && !isModerator)) {
+    return null;
+  }
 
   const fetchData = async () => {
     try {

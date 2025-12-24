@@ -1,11 +1,21 @@
 import { Button } from "@/components/ui/button";
-import { Brain, Menu, X } from "lucide-react";
+import { Brain, Menu, X, LogOut, Shield, User } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "./ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, loading, isAdmin, isModerator, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const navLinks = [
     { href: "#features", label: "Features" },
@@ -13,6 +23,11 @@ export const Navbar = () => {
     { href: "#toolkit", label: "Toolkit" },
     { href: "#about", label: "About" },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -44,12 +59,42 @@ export const Navbar = () => {
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
-            <Link to="/login">
-              <Button variant="ghost">Sign In</Button>
-            </Link>
-            <Link to="/onboarding">
-              <Button variant="default">Get Started</Button>
-            </Link>
+            {loading ? (
+              <div className="w-20 h-9 bg-muted animate-pulse rounded-md" />
+            ) : user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2">
+                    <User className="w-4 h-4" />
+                    Account
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {(isAdmin || isModerator) && (
+                    <>
+                      <DropdownMenuItem onClick={() => navigate('/moderation')}>
+                        <Shield className="w-4 h-4 mr-2" />
+                        Moderation Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link to="/onboarding">
+                  <Button variant="default">Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -80,12 +125,31 @@ export const Navbar = () => {
                   <span className="text-muted-foreground">Theme</span>
                   <ThemeToggle />
                 </div>
-                <Link to="/login">
-                  <Button variant="ghost" className="w-full">Sign In</Button>
-                </Link>
-                <Link to="/onboarding">
-                  <Button variant="default" className="w-full">Get Started</Button>
-                </Link>
+                {user ? (
+                  <>
+                    {(isAdmin || isModerator) && (
+                      <Link to="/moderation" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="outline" className="w-full gap-2">
+                          <Shield className="w-4 h-4" />
+                          Moderation Dashboard
+                        </Button>
+                      </Link>
+                    )}
+                    <Button variant="ghost" className="w-full gap-2" onClick={handleSignOut}>
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full">Sign In</Button>
+                    </Link>
+                    <Link to="/onboarding" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="default" className="w-full">Get Started</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
