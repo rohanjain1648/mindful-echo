@@ -230,15 +230,18 @@ export const useVoiceAssessment = () => {
         isCompleteRef.current = true;
       }
 
-      // Play audio response
+      // Play audio response if available
       if (data.audioContent) {
         await playAudio(data.audioContent);
-        
-        // Start listening after audio ends (if not complete)
-        if (!data.isComplete) {
-          console.log('[VoiceAssessment] Audio finished, starting to listen...');
+      }
+      
+      // Start listening after response (if not complete)
+      if (!data.isComplete) {
+        console.log('[VoiceAssessment] Response received, starting to listen...');
+        // Small delay to ensure audio finished
+        setTimeout(() => {
           startListeningRef.current?.();
-        }
+        }, data.audioContent ? 100 : 500);
       }
 
     } catch (err) {
@@ -451,9 +454,23 @@ export const useVoiceAssessment = () => {
   }, [selectedLanguage, selectedVoice, playAudio]);
 
   const endSession = useCallback(() => {
+    console.log('[VoiceAssessment] Ending session...');
     stopAudio();
     stopListening();
     setStatus('ended');
+  }, [stopAudio, stopListening]);
+
+  const resetSession = useCallback(() => {
+    console.log('[VoiceAssessment] Resetting session...');
+    stopAudio();
+    stopListening();
+    setTranscript([]);
+    messagesRef.current = [];
+    sessionIdRef.current = crypto.randomUUID();
+    setIsComplete(false);
+    isCompleteRef.current = false;
+    setError(null);
+    setStatus('idle');
   }, [stopAudio, stopListening]);
 
   const generateReport = useCallback(async () => {
@@ -508,6 +525,7 @@ export const useVoiceAssessment = () => {
     error,
     startSession,
     endSession,
+    resetSession,
     stopAudio,
     startListening,
     stopListening,

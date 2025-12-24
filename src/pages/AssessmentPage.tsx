@@ -1,4 +1,4 @@
-import { Brain, Shield, Mic, MicOff, Volume2, ChevronDown, AlertTriangle, Loader2, FileText } from "lucide-react";
+import { Brain, Shield, Mic, MicOff, Volume2, ChevronDown, AlertTriangle, Loader2, FileText, RotateCcw, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,8 +24,51 @@ const AssessmentPage = () => {
     error,
     startSession,
     endSession,
+    resetSession,
     generateReport,
+    startListening,
   } = useVoiceAssessment();
+
+  // Session ended - show summary
+  if (status === 'ended') {
+    return (
+      <div className="min-h-screen bg-background gradient-calm flex flex-col items-center justify-center p-6">
+        <Card className="w-full max-w-md shadow-float">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-20 h-20 rounded-full bg-primary/10 mx-auto flex items-center justify-center">
+              <MicOff className="w-10 h-10 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-display font-bold text-foreground">Session Ended</h2>
+              <p className="text-muted-foreground mt-2">
+                {transcript.length > 0 
+                  ? `You completed ${Math.floor(transcript.length / 2)} exchanges.`
+                  : 'Your session was ended.'}
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              {transcript.length > 0 && (
+                <Button variant="hero" size="lg" onClick={generateReport}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Report
+                </Button>
+              )}
+              <Button variant="outline" size="lg" onClick={resetSession}>
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Start New Session
+              </Button>
+              <Link to="/">
+                <Button variant="ghost" size="lg" className="w-full">
+                  <Home className="w-4 h-4 mr-2" />
+                  Go Home
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Pre-session: Language & voice selection
   if (status === 'idle' || status === 'error') {
@@ -245,7 +288,13 @@ const AssessmentPage = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 justify-center">
+              {!isAssistantSpeaking && !isUserSpeaking && !isComplete && (
+                <Button variant="outline" size="lg" onClick={startListening}>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Start Speaking
+                </Button>
+              )}
               {isComplete ? (
                 <Button variant="hero" size="lg" onClick={generateReport}>
                   <FileText className="w-4 h-4 mr-2" />
