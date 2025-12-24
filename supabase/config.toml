@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.content-guardrails]
 verify_jwt = false
+
+[functions.voice-assessment]
+verify_jwt = false
