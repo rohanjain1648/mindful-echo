@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,9 +16,27 @@ import {
   TrendingUp,
   MessageSquare,
   FileText,
-  RefreshCw
+  RefreshCw,
+  BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from "recharts";
 
 interface ModerationLog {
   id: string;
@@ -161,6 +179,67 @@ const ModerationDashboard = () => {
     return m.date === today;
   });
 
+  // Chart data preparation
+  const chartData = useMemo(() => {
+    return metrics
+      .slice()
+      .reverse()
+      .slice(-14) // Last 14 days
+      .map(m => ({
+        date: new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        total: m.total_checks,
+        blocked: m.blocked_count,
+        crisis: m.crisis_count,
+        highRisk: m.high_risk_count,
+        companion: m.companion_checks,
+        assessment: m.assessment_checks,
+        confidence: Math.round((m.avg_confidence || 0) * 100)
+      }));
+  }, [metrics]);
+
+  // Risk level distribution from logs
+  const riskDistribution = useMemo(() => {
+    const distribution = logs.reduce((acc, log) => {
+      const level = log.risk_level || 'none';
+      acc[level] = (acc[level] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return [
+      { name: 'None', value: distribution['none'] || 0, color: 'hsl(var(--muted-foreground))' },
+      { name: 'Low', value: distribution['low'] || 0, color: 'hsl(142, 76%, 36%)' },
+      { name: 'Medium', value: distribution['medium'] || 0, color: 'hsl(38, 92%, 50%)' },
+      { name: 'High', value: distribution['high'] || 0, color: 'hsl(25, 95%, 53%)' },
+      { name: 'Critical', value: distribution['critical'] || 0, color: 'hsl(0, 84%, 60%)' },
+    ].filter(d => d.value > 0);
+  }, [logs]);
+
+  // Source distribution
+  const sourceDistribution = useMemo(() => {
+    const companionCount = logs.filter(l => l.source === 'companion').length;
+    const assessmentCount = logs.filter(l => l.source === 'assessment').length;
+    return [
+      { name: 'Companion', value: companionCount, color: 'hsl(var(--primary))' },
+      { name: 'Assessment', value: assessmentCount, color: 'hsl(var(--secondary))' },
+    ].filter(d => d.value > 0);
+  }, [logs]);
+
+  // Policy violations breakdown
+  const policyViolations = useMemo(() => {
+    const violations: Record<string, number> = {};
+    logs.forEach(log => {
+      if (log.violated_policies) {
+        log.violated_policies.forEach(policy => {
+          violations[policy] = (violations[policy] || 0) + 1;
+        });
+      }
+    });
+    return Object.entries(violations)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [logs]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -271,6 +350,199 @@ const ModerationDashboard = () => {
                   <p className="text-sm text-muted-foreground">Avg Confidence</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Activity Trend Chart */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <CardTitle>Moderation Activity Trend</CardTitle>
+              </div>
+              <CardDescription>Daily content checks and flagged items over the last 14 days</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorBlocked" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorCrisis" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(0, 84%, 60%)" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(0, 84%, 60%)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total" 
+                      name="Total Checks"
+                      stroke="hsl(var(--primary))" 
+                      fillOpacity={1} 
+                      fill="url(#colorTotal)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="blocked" 
+                      name="Blocked"
+                      stroke="hsl(38, 92%, 50%)" 
+                      fillOpacity={1} 
+                      fill="url(#colorBlocked)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="crisis" 
+                      name="Crisis"
+                      stroke="hsl(0, 84%, 60%)" 
+                      fillOpacity={1} 
+                      fill="url(#colorCrisis)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  <p>No trend data available yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Risk Level Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Risk Level Distribution</CardTitle>
+              <CardDescription>Breakdown of flagged content by risk severity</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {riskDistribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={riskDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {riskDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  <p>No risk data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Source Distribution */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Content Source</CardTitle>
+              <CardDescription>Moderation checks by source type</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {sourceDistribution.length > 0 ? (
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={sourceDistribution} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                      <YAxis dataKey="name" type="category" tick={{ fill: 'hsl(var(--muted-foreground))' }} width={80} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Bar dataKey="value" name="Checks" radius={[0, 4, 4, 0]}>
+                        {sourceDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="flex justify-center gap-6 text-sm">
+                    {sourceDistribution.map((source) => (
+                      <div key={source.name} className="flex items-center gap-2">
+                        {source.name === 'Companion' ? (
+                          <MessageSquare className="h-4 w-4 text-primary" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span>{source.name}: {source.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  <p>No source data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Policy Violations Bar Chart */}
+        {policyViolations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Policy Violations</CardTitle>
+              <CardDescription>Most frequently triggered content policies</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={policyViolations}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="value" name="Violations" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         )}
