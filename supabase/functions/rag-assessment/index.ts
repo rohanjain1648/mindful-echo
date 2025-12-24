@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -343,9 +344,14 @@ serve(async (req) => {
 
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     const { action, questionIndex, userResponse, sessionId, conversationHistory } = await req.json();
 
@@ -359,6 +365,24 @@ serve(async (req) => {
       // Check content safety BEFORE processing
       console.log('Checking safety for assessment response:', userResponse?.substring(0, 50));
       const safetyResult = await checkContentSafety(userResponse, LOVABLE_API_KEY);
+      
+      // Log moderation event
+      const shouldLog = safetyResult.is_crisis || !safetyResult.is_safe || safetyResult.risk_level !== 'none';
+      if (shouldLog) {
+        await supabase.from('moderation_logs').insert({
+          source: 'assessment',
+          content_preview: userResponse?.substring(0, 200) || '',
+          is_blocked: !safetyResult.is_safe && safetyResult.risk_level !== 'low',
+          is_crisis: safetyResult.is_crisis,
+          risk_level: safetyResult.risk_level,
+          violated_policies: safetyResult.violated_policies || [],
+          confidence: safetyResult.confidence,
+          reason: safetyResult.reason,
+          safe_response_suggestion: safetyResult.safe_response_suggestion,
+          session_id: sessionId,
+        });
+        console.log('Logged moderation event to database');
+      }
       
       // Handle crisis situations with resources
       if (safetyResult.is_crisis) {

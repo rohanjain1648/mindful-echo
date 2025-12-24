@@ -8,6 +8,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import AssessmentPage from "./pages/AssessmentPage";
 import ReportPage from "./pages/ReportPage";
 import CompanionPage from "./pages/CompanionPage";
+import ModerationDashboard from "./pages/ModerationDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/assessment" element={<AssessmentPage />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/companion" element={<CompanionPage />} />
+          <Route path="/moderation" element={<ModerationDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

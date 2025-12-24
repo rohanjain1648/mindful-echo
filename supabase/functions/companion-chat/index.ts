@@ -177,6 +177,24 @@ serve(async (req) => {
       console.log('Checking content safety for message:', message?.substring(0, 50));
       const safetyResult = await checkContentSafety(message, LOVABLE_API_KEY);
       
+      // Log moderation event
+      const shouldLog = safetyResult.is_crisis || !safetyResult.is_safe || safetyResult.risk_level !== 'none';
+      if (shouldLog) {
+        await supabase.from('moderation_logs').insert({
+          source: 'companion',
+          content_preview: message?.substring(0, 200) || '',
+          is_blocked: !safetyResult.is_safe && safetyResult.risk_level !== 'low',
+          is_crisis: safetyResult.is_crisis,
+          risk_level: safetyResult.risk_level,
+          violated_policies: safetyResult.violated_policies || [],
+          confidence: safetyResult.confidence,
+          reason: safetyResult.reason,
+          safe_response_suggestion: safetyResult.safe_response_suggestion,
+          session_id: sessionId,
+        });
+        console.log('Logged moderation event to database');
+      }
+      
       // Handle crisis situations with resources
       if (safetyResult.is_crisis) {
         console.log('Crisis detected, providing resources');
