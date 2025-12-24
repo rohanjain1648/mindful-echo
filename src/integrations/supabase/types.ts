@@ -290,9 +290,78 @@ export type Database = {
         }
         Relationships: []
       }
+      moderation_logs: {
+        Row: {
+          confidence: number | null
+          content_preview: string
+          created_at: string
+          full_content_hash: string | null
+          id: string
+          is_blocked: boolean
+          is_crisis: boolean
+          reason: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          risk_level: string
+          safe_response_suggestion: string | null
+          session_id: string | null
+          source: string
+          violated_policies: string[] | null
+        }
+        Insert: {
+          confidence?: number | null
+          content_preview: string
+          created_at?: string
+          full_content_hash?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_crisis?: boolean
+          reason?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_level?: string
+          safe_response_suggestion?: string | null
+          session_id?: string | null
+          source: string
+          violated_policies?: string[] | null
+        }
+        Update: {
+          confidence?: number | null
+          content_preview?: string
+          created_at?: string
+          full_content_hash?: string | null
+          id?: string
+          is_blocked?: boolean
+          is_crisis?: boolean
+          reason?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_level?: string
+          safe_response_suggestion?: string | null
+          session_id?: string | null
+          source?: string
+          violated_policies?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      moderation_metrics_daily: {
+        Row: {
+          assessment_checks: number | null
+          avg_confidence: number | null
+          blocked_count: number | null
+          companion_checks: number | null
+          crisis_count: number | null
+          date: string | null
+          high_risk_count: number | null
+          total_checks: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
