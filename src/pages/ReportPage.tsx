@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -19,6 +19,9 @@ import {
   Info
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface ReportData {
   overall_sentiment_score: number;
@@ -40,6 +43,64 @@ const ReportPage = () => {
   const navigate = useNavigate();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    
+    setIsExporting(true);
+    toast.info("Generating PDF...");
+    
+    try {
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      
+      // Calculate how many pages we need
+      const scaledHeight = imgHeight * ratio;
+      const pageCount = Math.ceil(scaledHeight / pdfHeight);
+      
+      for (let i = 0; i < pageCount; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(
+          imgData,
+          'PNG',
+          imgX,
+          -(i * pdfHeight),
+          imgWidth * ratio,
+          imgHeight * ratio
+        );
+      }
+      
+      pdf.save('wellness-report.pdf');
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error("Failed to export PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     // Try to get report from session storage
@@ -166,9 +227,13 @@ const ReportPage = () => {
           </Link>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export PDF
+            <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={isExporting}>
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              {isExporting ? "Exporting..." : "Export PDF"}
             </Button>
             <Button variant="outline" size="sm">
               <Share2 className="w-4 h-4 mr-2" />
@@ -179,7 +244,7 @@ const ReportPage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto max-w-5xl p-6 pb-24">
+      <main ref={reportRef} className="container mx-auto max-w-5xl p-6 pb-24 bg-background">
         {/* Report Header */}
         <div className="text-center mb-12">
           <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
