@@ -11,6 +11,7 @@ import ReportPage from "./pages/ReportPage";
 import CompanionPage from "./pages/CompanionPage";
 import ModerationDashboard from "./pages/ModerationDashboard";
 import AuthPage from "./pages/AuthPage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/report" element={<ReportPage />} />
             <Route path="/companion" element={<CompanionPage />} />
             <Route path="/moderation" element={<ModerationDashboard />} />
+            <Route path="/profile" element={<ProfilePage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

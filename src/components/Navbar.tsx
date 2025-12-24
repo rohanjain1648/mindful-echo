@@ -70,15 +70,20 @@ export const Navbar = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="w-4 h-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
                   {(isAdmin || isModerator) && (
                     <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => navigate('/moderation')}>
                         <Shield className="w-4 h-4 mr-2" />
                         Moderation Dashboard
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                     </>
                   )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
@@ -127,6 +132,12 @@ export const Navbar = () => {
                 </div>
                 {user ? (
                   <>
+                    <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="outline" className="w-full gap-2">
+                        <User className="w-4 h-4" />
+                        Profile
+                      </Button>
+                    </Link>
                     {(isAdmin || isModerator) && (
                       <Link to="/moderation" onClick={() => setIsMenuOpen(false)}>
                         <Button variant="outline" className="w-full gap-2">
