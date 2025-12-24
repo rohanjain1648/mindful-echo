@@ -1,312 +1,277 @@
-import { useState, useEffect, useRef } from "react";
+import { Brain, Shield, Mic, MicOff, Volume2, ChevronDown, AlertTriangle, Loader2, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { VoiceOrb } from "@/components/VoiceOrb";
-import { Brain, ArrowRight, Shield, AlertTriangle, CheckCircle2, Loader2, MessageSquare, Send } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { useAssessment } from "@/hooks/useAssessment";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceVisualizer } from "@/components/VoiceVisualizer";
+import { LiveTranscript } from "@/components/LiveTranscript";
+import { useVoiceAssessment, ASSISTANT_VOICES } from "@/hooks/useVoiceAssessment";
+import { cn } from "@/lib/utils";
 
 const AssessmentPage = () => {
-  const [textInput, setTextInput] = useState("");
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [showTextInput, setShowTextInput] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
   const {
-    currentQuestion,
-    currentQuestionIndex,
-    isLoading,
-    isProcessing,
-    progress,
-    fetchQuestions,
-    processResponse,
-    goToNextQuestion,
-    skipQuestion,
+    status,
+    languages,
+    selectedLanguage,
+    setSelectedLanguage,
+    selectedVoice,
+    setSelectedVoice,
+    transcript,
+    isAssistantSpeaking,
+    isUserSpeaking,
+    isComplete,
+    speechRate,
+    setSpeechRate,
+    error,
+    startSession,
+    endSession,
     generateReport,
-    conversationHistory,
-    questions,
-  } = useAssessment();
+  } = useVoiceAssessment();
 
-  useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
-
-  const isComplete = currentQuestionIndex >= questions.length && questions.length > 0;
-
-  const handleTextSubmit = async () => {
-    if (!textInput.trim() || isProcessing) return;
-
-    const response = await processResponse(textInput.trim());
-    if (response) {
-      setAiResponse(response.acknowledgment);
-      setTextInput("");
-      
-      // Show AI response for a moment, then move to next question
-      setTimeout(() => {
-        setAiResponse(null);
-        if (!response.isComplete) {
-          goToNextQuestion();
-        }
-      }, 3000);
-    }
-  };
-
-  const handleSkip = () => {
-    skipQuestion();
-    setAiResponse(null);
-  };
-
-  const handleViewReport = async () => {
-    const report = await generateReport();
-    if (report) {
-      // Store report in session storage for the report page
-      sessionStorage.setItem('assessmentReport', JSON.stringify(report));
-      navigate("/report");
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleTextSubmit();
-    }
-  };
-
-  if (isLoading) {
+  // Pre-session: Language & voice selection
+  if (status === 'idle' || status === 'error') {
     return (
-      <div className="min-h-screen bg-background gradient-calm flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Preparing your personalized assessment...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background gradient-calm flex flex-col">
-      {/* Header */}
-      <header className="p-6 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container mx-auto max-w-4xl flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center shadow-soft">
-              <Brain className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-display text-xl font-bold text-foreground">
-              Nutrail
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-4">
+      <div className="min-h-screen bg-background gradient-calm flex flex-col">
+        {/* Header */}
+        <header className="p-6 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+          <div className="container mx-auto max-w-4xl flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center shadow-soft">
+                <Brain className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <span className="font-display text-xl font-bold text-foreground">
+                Nutrail
+              </span>
+            </Link>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Shield className="w-4 h-4 text-primary" />
               <span className="hidden sm:inline">Protected Session</span>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-2xl">
-          {!isComplete ? (
-            <>
-              {/* Progress */}
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Question {currentQuestionIndex + 1} of {questions.length}
-                  </span>
-                  <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
+        <main className="flex-1 flex items-center justify-center p-6">
+          <Card className="w-full max-w-xl shadow-float">
+            <CardContent className="p-8 space-y-8">
+              {/* Header */}
+              <div className="text-center space-y-4">
+                <div className="w-24 h-24 rounded-full gradient-hero mx-auto flex items-center justify-center">
+                  <Mic className="w-10 h-10 text-primary-foreground" />
                 </div>
-                <Progress value={progress} className="h-2" />
+                <div>
+                  <h1 className="text-2xl font-display font-bold text-foreground">
+                    Voice Assessment
+                  </h1>
+                  <p className="text-muted-foreground mt-2">
+                    Reflect on your focus with AI-powered conversation. I'll ask you 20 questions and you respond naturally by speaking.
+                  </p>
+                </div>
               </div>
 
-              {/* Question Card */}
-              <Card className="shadow-float mb-8">
-                <CardContent className="p-8 text-center">
-                  <p className="text-xl md:text-2xl font-display font-medium text-foreground leading-relaxed">
-                    {currentQuestion?.text}
-                  </p>
-                  {currentQuestion?.followUp && (
-                    <p className="text-sm text-muted-foreground mt-3 italic">
-                      {currentQuestion.followUp}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* AI Response Display */}
-              {aiResponse && (
-                <Card className="shadow-soft mb-6 border-primary/20 bg-primary/5">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full gradient-hero flex items-center justify-center shrink-0">
-                        <Brain className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <p className="text-foreground leading-relaxed">{aiResponse}</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Moving to next question...
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Response Interface */}
-              <div className="flex flex-col items-center">
-                {!showTextInput ? (
-                  <>
-                    <VoiceOrb
-                      isListening={false}
-                      isSpeaking={isProcessing}
-                      onStart={() => setShowTextInput(true)}
-                      onStop={() => {}}
-                      size="lg"
-                    />
-                    <p className="text-muted-foreground text-sm mt-4">
-                      Click to respond with text
-                    </p>
-                    <Button
-                      variant="ghost"
-                      className="mt-4"
-                      onClick={() => setShowTextInput(true)}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Type your response instead
-                    </Button>
-                  </>
-                ) : (
-                  <div className="w-full space-y-4">
-                    <div className="relative">
-                      <Textarea
-                        ref={textareaRef}
-                        value={textInput}
-                        onChange={(e) => setTextInput(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        placeholder="Share your thoughts here... Take your time, there's no rush."
-                        className="min-h-[120px] pr-12 resize-none"
-                        disabled={isProcessing}
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="absolute bottom-2 right-2"
-                        onClick={handleTextSubmit}
-                        disabled={!textInput.trim() || isProcessing}
-                      >
-                        {isProcessing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Press Enter to send, or Shift+Enter for a new line
-                    </p>
-                  </div>
-                )}
-
-                {/* Skip option */}
-                <Button
-                  variant="ghost"
-                  className="mt-8"
-                  onClick={handleSkip}
-                  disabled={isProcessing}
-                >
-                  Skip this question
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Conversation History Preview */}
-              {conversationHistory.length > 0 && (
-                <div className="mt-8 p-4 rounded-xl bg-muted/30 border border-border/50">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Questions answered: {conversationHistory.length}
-                  </p>
-                  <div className="flex gap-1">
-                    {conversationHistory.map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-1.5 flex-1 rounded-full bg-primary/60"
-                      />
-                    ))}
-                    {Array.from({ length: questions.length - conversationHistory.length }).map((_, i) => (
-                      <div
-                        key={`remaining-${i}`}
-                        className="h-1.5 flex-1 rounded-full bg-muted"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            /* Completion State */
-            <Card className="shadow-float text-center">
-              <CardContent className="p-12">
-                <div className="w-24 h-24 rounded-full gradient-hero flex items-center justify-center mx-auto mb-6 shadow-glow">
-                  <CheckCircle2 className="w-12 h-12 text-primary-foreground" />
-                </div>
-
-                <h2 className="font-display text-3xl font-bold text-foreground mb-4">
-                  Assessment Complete!
-                </h2>
-                <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                  Thank you for sharing your experiences. Your detailed wellness report 
-                  is being generated with personalized insights and recommendations.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Button 
-                    variant="hero" 
-                    size="xl" 
-                    onClick={handleViewReport}
-                    disabled={isProcessing}
+              {/* Language Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-primary" />
+                  Language
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedLanguage?.code || 'en'}
+                    onChange={(e) => {
+                      const lang = languages.find(l => l.code === e.target.value);
+                      if (lang) setSelectedLanguage(lang);
+                    }}
+                    className="w-full bg-muted border border-border text-foreground rounded-xl p-4 appearance-none cursor-pointer pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                   >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Generating Report...
-                      </>
-                    ) : (
-                      <>
-                        View Your Report
-                        <ArrowRight className="w-5 h-5" />
-                      </>
-                    )}
-                  </Button>
+                    {languages.map(lang => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.nativeName} ({lang.name})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 </div>
+              </div>
 
-                <div className="mt-8 p-4 rounded-xl bg-primary/5 border border-primary/20">
-                  <p className="text-sm text-muted-foreground">
-                    Your responses are being analyzed using AI-powered sentiment analysis 
-                    and evidence-based ADHD pattern recognition.
-                  </p>
+              {/* Voice Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-primary" />
+                  Assistant Voice
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedVoice}
+                    onChange={(e) => setSelectedVoice(e.target.value)}
+                    className="w-full bg-muted border border-border text-foreground rounded-xl p-4 appearance-none cursor-pointer pr-10 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                  >
+                    {ASSISTANT_VOICES.map(voice => (
+                      <option key={voice.id} value={voice.id}>
+                        {voice.label} ({voice.description})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
 
-          {/* Safety notice */}
-          <div className="mt-8 p-4 rounded-xl bg-warm/10 border border-warm/20 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-warm shrink-0 mt-0.5" />
-            <div>
+              {/* Start Button */}
+              <Button
+                variant="hero"
+                size="xl"
+                className="w-full"
+                onClick={startSession}
+              >
+                <Mic className="w-5 h-5 mr-2" />
+                Start Voice Session
+              </Button>
+
+              {/* Error message */}
+              {error && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+
+        {/* Safety notice */}
+        <footer className="p-6">
+          <div className="container mx-auto max-w-xl">
+            <div className="p-4 rounded-xl bg-warm/10 border border-warm/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-warm shrink-0 mt-0.5" />
               <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">Safety First:</strong> If you're experiencing thoughts of self-harm 
-                or are in crisis, please contact a mental health professional or call your local emergency services immediately.
+                <strong className="text-foreground">Safety First:</strong> If you're in crisis, please contact a mental health professional or call your local emergency services.
               </p>
             </div>
           </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // Connecting state
+  if (status === 'connecting') {
+    return (
+      <div className="min-h-screen bg-background gradient-calm flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
+          <p className="text-muted-foreground">Connecting to your voice session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Active session or ended
+  return (
+    <div className="min-h-screen bg-background gradient-calm flex flex-col">
+      {/* Header */}
+      <header className="p-4 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="container mx-auto max-w-6xl flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center shadow-soft">
+              <Brain className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="font-display text-lg font-bold text-foreground">
+              Nutrail
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-4">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Speaking in </span>
+              <span className="font-medium text-foreground">{selectedLanguage?.name || 'English'}</span>
+            </div>
+            <div className={cn(
+              'px-3 py-1.5 rounded-full text-xs font-medium',
+              isAssistantSpeaking ? 'bg-primary/20 text-primary' :
+              isUserSpeaking ? 'bg-accent/20 text-accent-foreground' :
+              'bg-muted text-muted-foreground'
+            )}>
+              {isAssistantSpeaking ? 'Assistant Speaking' : isUserSpeaking ? 'Listening...' : 'Ready'}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 container mx-auto max-w-6xl">
+        {/* Left: Visualizer & Controls */}
+        <div className="flex-1 flex flex-col items-center justify-center space-y-8">
+          <VoiceVisualizer
+            isActive={isAssistantSpeaking || isUserSpeaking}
+            type={isAssistantSpeaking ? 'assistant' : isUserSpeaking ? 'user' : 'idle'}
+            size="lg"
+          />
+
+          {/* Status Text */}
+          <div className="text-center space-y-2">
+            {isComplete ? (
+              <>
+                <p className="text-lg font-medium text-foreground">Assessment Complete!</p>
+                <p className="text-sm text-muted-foreground">Would you like to view your detailed report?</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium text-foreground">
+                  {isAssistantSpeaking ? 'Nutrail is speaking...' : 
+                   isUserSpeaking ? 'Listening to you...' : 
+                   'Speak when ready'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isAssistantSpeaking ? 'Wait for the question to complete' :
+                   isUserSpeaking ? 'I can hear you' :
+                   'Speak naturally to respond'}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="flex flex-col items-center gap-4">
+            {/* Speech Rate */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border/50">
+              <span className="text-sm text-muted-foreground">Speed</span>
+              <input
+                type="range"
+                min="0.7"
+                max="1.3"
+                step="0.1"
+                value={speechRate}
+                onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                className="w-24 accent-primary"
+              />
+              <span className="text-sm font-medium text-foreground w-10">{speechRate.toFixed(1)}x</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              {isComplete ? (
+                <Button variant="hero" size="lg" onClick={generateReport}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Report
+                </Button>
+              ) : (
+                <Button variant="destructive" size="lg" onClick={endSession}>
+                  <MicOff className="w-4 h-4 mr-2" />
+                  End Session
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Live Transcript */}
+        <div className="lg:w-96 flex flex-col">
+          <Card className="flex-1 shadow-soft">
+            <div className="p-4 border-b border-border/50 flex items-center justify-between">
+              <h3 className="font-medium text-foreground">Live Transcript</h3>
+              <span className="text-xs text-muted-foreground">{transcript.length} messages</span>
+            </div>
+            <div className="h-[400px] lg:h-[calc(100vh-300px)]">
+              <LiveTranscript transcript={transcript} />
+            </div>
+          </Card>
         </div>
       </main>
     </div>
