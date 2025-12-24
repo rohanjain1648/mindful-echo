@@ -14,7 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assessment_reports: {
+        Row: {
+          challenges: string[] | null
+          created_at: string
+          detailed_analysis: Json | null
+          id: string
+          overall_sentiment_score: number | null
+          primary_patterns: string[] | null
+          recommendations: Json | null
+          session_id: string
+          strengths: string[] | null
+        }
+        Insert: {
+          challenges?: string[] | null
+          created_at?: string
+          detailed_analysis?: Json | null
+          id?: string
+          overall_sentiment_score?: number | null
+          primary_patterns?: string[] | null
+          recommendations?: Json | null
+          session_id: string
+          strengths?: string[] | null
+        }
+        Update: {
+          challenges?: string[] | null
+          created_at?: string
+          detailed_analysis?: Json | null
+          id?: string
+          overall_sentiment_score?: number | null
+          primary_patterns?: string[] | null
+          recommendations?: Json | null
+          session_id?: string
+          strengths?: string[] | null
+        }
+        Relationships: []
+      }
+      assessment_responses: {
+        Row: {
+          ai_acknowledgment: string | null
+          created_at: string
+          emotion_detected: string | null
+          id: string
+          question_index: number
+          question_text: string
+          sentiment_score: number | null
+          session_id: string
+          user_response: string
+        }
+        Insert: {
+          ai_acknowledgment?: string | null
+          created_at?: string
+          emotion_detected?: string | null
+          id?: string
+          question_index: number
+          question_text: string
+          sentiment_score?: number | null
+          session_id: string
+          user_response: string
+        }
+        Update: {
+          ai_acknowledgment?: string | null
+          created_at?: string
+          emotion_detected?: string | null
+          id?: string
+          question_index?: number
+          question_text?: string
+          sentiment_score?: number | null
+          session_id?: string
+          user_response?: string
+        }
+        Relationships: []
+      }
+      assessment_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          session_id: string
+          started_at: string
+          status: string
+          total_questions: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          session_id: string
+          started_at?: string
+          status?: string
+          total_questions?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string
+          started_at?: string
+          status?: string
+          total_questions?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

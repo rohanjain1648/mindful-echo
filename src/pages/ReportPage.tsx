@@ -1,6 +1,6 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { 
   Brain, 
   ArrowRight, 
@@ -14,75 +14,142 @@ import {
   Clock,
   BarChart3,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Info
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
+interface ReportData {
+  overall_sentiment_score: number;
+  primary_patterns: string[];
+  strengths: string[];
+  challenges: string[];
+  category_scores: Record<string, number>;
+  recommendations: Array<{
+    area: string;
+    suggestion: string;
+    priority: string;
+  }>;
+  summary: string;
+  next_steps: string[];
+  disclaimer: string;
+}
+
 const ReportPage = () => {
   const navigate = useNavigate();
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sample report data (in production, this would come from AI analysis)
-  const sentimentData = {
-    overall: 68,
-    categories: [
-      { name: "Focus & Attention", score: 45, trend: "down" },
-      { name: "Emotional Regulation", score: 72, trend: "up" },
-      { name: "Impulsivity Management", score: 58, trend: "neutral" },
-      { name: "Task Completion", score: 52, trend: "down" },
-      { name: "Hyperactivity", score: 65, trend: "neutral" },
-      { name: "Time Perception", score: 48, trend: "down" },
+  useEffect(() => {
+    // Try to get report from session storage
+    const storedReport = sessionStorage.getItem('assessmentReport');
+    if (storedReport) {
+      try {
+        setReportData(JSON.parse(storedReport));
+      } catch (e) {
+        console.error('Failed to parse report:', e);
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Fallback data for display
+  const displayData = reportData || {
+    overall_sentiment_score: 0.68,
+    primary_patterns: [
+      "Attention regulation challenges",
+      "Time perception difficulties",
+      "Emotional sensitivity patterns"
     ],
     strengths: [
-      "Strong awareness of emotional patterns",
+      "Strong self-awareness",
       "Good verbal expression skills",
       "Motivated to seek support",
-      "Creative problem-solving abilities",
+      "Creative thinking abilities",
     ],
     challenges: [
-      "Difficulty sustaining attention on non-preferred tasks",
-      "Time management and estimation challenges",
+      "Sustaining attention on non-preferred tasks",
+      "Time management and estimation",
       "Impulsive decision-making patterns",
       "Task initiation difficulties",
     ],
+    category_scores: {
+      impulsivity: 6,
+      hyperactivity: 5,
+      inattention: 7,
+      emotional_regulation: 6,
+      executive_function: 7,
+      time_management: 8,
+    },
     recommendations: [
       {
-        title: "Pomodoro Technique",
-        description: "25-minute focused work sessions with 5-minute breaks to improve sustained attention.",
+        area: "Focus",
+        suggestion: "Use Pomodoro Technique with 25-minute focused sessions",
         priority: "high",
       },
       {
-        title: "Time Boxing",
-        description: "Set external timers and visual cues to improve time awareness and task transitions.",
+        area: "Time",
+        suggestion: "Set visual timers and external cues for time awareness",
         priority: "high",
       },
       {
-        title: "Body Doubling",
-        description: "Work alongside others (virtually or in-person) to maintain focus and accountability.",
+        area: "Accountability",
+        suggestion: "Try body doubling - work alongside others for focus",
         priority: "medium",
       },
       {
-        title: "Dopamine Menu",
-        description: "Create a list of healthy stimulating activities for low-energy periods.",
+        area: "Energy",
+        suggestion: "Create a 'dopamine menu' of healthy stimulating activities",
         priority: "medium",
       },
     ],
+    summary: "Based on your assessment responses, you demonstrate strong self-awareness and a genuine desire to understand and improve your focus patterns. Your responses indicate some common ADHD-related challenges around attention regulation, time perception, and task initiation.",
+    next_steps: [
+      "Try the recommended focus strategies",
+      "Continue with AI companion for ongoing support",
+      "Consider professional evaluation if needed"
+    ],
+    disclaimer: "This assessment is not a clinical diagnosis. Please consult with a qualified healthcare professional for a comprehensive evaluation.",
+  };
+
+  const overallScore = Math.round((reportData?.overall_sentiment_score || 0.68) * 100);
+
+  const categoryLabels: Record<string, string> = {
+    impulsivity: "Impulsivity Management",
+    hyperactivity: "Hyperactivity Control",
+    inattention: "Focus & Attention",
+    emotional_regulation: "Emotional Regulation",
+    executive_function: "Executive Function",
+    time_management: "Time Management",
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 70) return "text-primary";
-    if (score >= 50) return "text-warm";
+    if (score <= 3) return "text-primary";
+    if (score <= 6) return "text-warm";
     return "text-destructive";
   };
 
   const getProgressColor = (score: number) => {
-    if (score >= 70) return "bg-primary";
-    if (score >= 50) return "bg-warm";
+    if (score <= 3) return "bg-primary";
+    if (score <= 6) return "bg-warm";
     return "bg-destructive";
   };
 
   const handleContinueWithCompanion = () => {
     navigate("/companion");
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background gradient-calm flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your report...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background gradient-calm">
@@ -128,11 +195,24 @@ const ReportPage = () => {
           </p>
         </div>
 
+        {/* AI Analysis Indicator */}
+        {reportData && (
+          <div className="mb-6 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
+            <Brain className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-foreground font-medium">AI-Generated Analysis</p>
+              <p className="text-xs text-muted-foreground">
+                This report was generated using our RAG-based AI system trained on evidence-based ADHD research.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Overall Score Card */}
         <Card className="shadow-float mb-8 overflow-hidden">
           <div className="gradient-hero p-8 text-center">
             <h2 className="font-display text-6xl font-bold text-primary-foreground mb-2">
-              {sentimentData.overall}
+              {overallScore}
             </h2>
             <p className="text-primary-foreground/80">Overall Wellness Score</p>
           </div>
@@ -141,58 +221,110 @@ const ReportPage = () => {
               <div className="text-center p-4 rounded-xl bg-secondary/50">
                 <Heart className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="font-display font-semibold text-foreground">Emotional Awareness</p>
-                <p className="text-sm text-muted-foreground">Above Average</p>
+                <p className="text-sm text-muted-foreground">
+                  {overallScore >= 70 ? "Strong" : overallScore >= 50 ? "Developing" : "Needs Attention"}
+                </p>
               </div>
               <div className="text-center p-4 rounded-xl bg-secondary/50">
                 <Target className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="font-display font-semibold text-foreground">Focus Patterns</p>
-                <p className="text-sm text-muted-foreground">Needs Attention</p>
+                <p className="text-sm text-muted-foreground">
+                  {displayData.category_scores?.inattention <= 5 ? "Well Managed" : "Needs Support"}
+                </p>
               </div>
               <div className="text-center p-4 rounded-xl bg-secondary/50">
                 <Zap className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="font-display font-semibold text-foreground">Energy Management</p>
-                <p className="text-sm text-muted-foreground">Moderate</p>
+                <p className="text-sm text-muted-foreground">
+                  {displayData.category_scores?.hyperactivity <= 5 ? "Balanced" : "Variable"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Summary */}
+        {displayData.summary && (
+          <Card className="shadow-card mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Info className="w-6 h-6 text-primary" />
+                Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground leading-relaxed">{displayData.summary}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Primary Patterns */}
+        {displayData.primary_patterns?.length > 0 && (
+          <Card className="shadow-card mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Brain className="w-6 h-6 text-primary" />
+                Observed Patterns
+              </CardTitle>
+              <CardDescription>
+                Key patterns identified from your assessment responses.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {displayData.primary_patterns.map((pattern, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium"
+                  >
+                    {pattern}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Category Breakdown */}
-        <Card className="shadow-card mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <BarChart3 className="w-6 h-6 text-primary" />
-              Detailed Category Analysis
-            </CardTitle>
-            <CardDescription>
-              Sentiment scores across key ADHD-related areas based on your responses.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {sentimentData.categories.map((category) => (
-                <div key={category.name}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-foreground">{category.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-display font-bold ${getScoreColor(category.score)}`}>
-                        {category.score}%
+        {Object.keys(displayData.category_scores || {}).length > 0 && (
+          <Card className="shadow-card mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <BarChart3 className="w-6 h-6 text-primary" />
+                Detailed Category Analysis
+              </CardTitle>
+              <CardDescription>
+                Scores across key ADHD-related areas (lower = better managed).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {Object.entries(displayData.category_scores).map(([key, score]) => (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-foreground">
+                        {categoryLabels[key] || key}
                       </span>
-                      {category.trend === "up" && <TrendingUp className="w-4 h-4 text-primary" />}
-                      {category.trend === "down" && <TrendingDown className="w-4 h-4 text-destructive" />}
+                      <div className="flex items-center gap-2">
+                        <span className={`font-display font-bold ${getScoreColor(score as number)}`}>
+                          {score}/10
+                        </span>
+                        {(score as number) <= 3 && <TrendingDown className="w-4 h-4 text-primary" />}
+                        {(score as number) >= 7 && <TrendingUp className="w-4 h-4 text-destructive" />}
+                      </div>
+                    </div>
+                    <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${getProgressColor(score as number)}`}
+                        style={{ width: `${((score as number) / 10) * 100}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${getProgressColor(category.score)}`}
-                      style={{ width: `${category.score}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Strengths & Challenges */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -205,7 +337,7 @@ const ReportPage = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {sentimentData.strengths.map((strength, index) => (
+                {displayData.strengths.map((strength, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                       <CheckCircle2 className="w-3 h-3 text-primary" />
@@ -226,7 +358,7 @@ const ReportPage = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {sentimentData.challenges.map((challenge, index) => (
+                {displayData.challenges.map((challenge, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-warm/20 flex items-center justify-center shrink-0 mt-0.5">
                       <AlertCircle className="w-3 h-3 text-warm" />
@@ -252,13 +384,13 @@ const ReportPage = () => {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
-              {sentimentData.recommendations.map((rec, index) => (
+              {displayData.recommendations.map((rec, index) => (
                 <div
                   key={index}
                   className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-primary/30 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-display font-semibold text-foreground">{rec.title}</h4>
+                    <h4 className="font-display font-semibold text-foreground">{rec.area}</h4>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                       rec.priority === "high" 
                         ? "bg-primary/20 text-primary" 
@@ -267,12 +399,43 @@ const ReportPage = () => {
                       {rec.priority === "high" ? "Recommended" : "Try Later"}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{rec.description}</p>
+                  <p className="text-sm text-muted-foreground">{rec.suggestion}</p>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Next Steps */}
+        {displayData.next_steps?.length > 0 && (
+          <Card className="shadow-card mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <ArrowRight className="w-6 h-6 text-primary" />
+                Suggested Next Steps
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-3">
+                {displayData.next_steps.map((step, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <span className="text-muted-foreground">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Disclaimer */}
+        <div className="mb-8 p-4 rounded-xl bg-muted/50 border border-border">
+          <p className="text-xs text-muted-foreground text-center">
+            {displayData.disclaimer || "This assessment is not a clinical diagnosis. Please consult with a qualified healthcare professional for a comprehensive evaluation."}
+          </p>
+        </div>
 
         {/* Continue CTA */}
         <Card className="shadow-float bg-gradient-to-r from-primary/5 to-warm/5 border-primary/20">
