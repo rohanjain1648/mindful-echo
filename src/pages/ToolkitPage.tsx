@@ -26,7 +26,9 @@ import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 import { Exercise } from '@/data/exerciseLibrary';
 import { formatDistanceToNow } from 'date-fns';
 import { ProgressCharts } from '@/components/ProgressCharts';
-
+import { useReminders } from '@/hooks/useReminders';
+import { ReminderBanner, CompletedTodayBanner, ReminderSettingsDialog } from '@/components/ReminderComponents';
+import { AnimatePresence } from 'framer-motion';
 const exerciseIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Wind,
   Target,
@@ -156,6 +158,20 @@ export default function ToolkitPage() {
     getExerciseStats
   } = useExerciseTracker();
 
+  // Check if user has completed any exercise today
+  const today = new Date().toISOString().split('T')[0];
+  const todaysCompletions = Object.values(stats).filter(s => {
+    if (!s.lastCompleted) return false;
+    return s.lastCompleted.toISOString().split('T')[0] === today;
+  }).reduce((sum, s) => {
+    // Count completions from today
+    return sum + (s.lastCompleted?.toISOString().split('T')[0] === today ? 1 : 0);
+  }, 0);
+  const hasCompletedToday = todaysCompletions > 0;
+
+  // Reminders hook
+  const reminders = useReminders(hasCompletedToday);
+
   const handleStartExercise = (exercise: Exercise) => {
     const route = exerciseRoutes[exercise.id];
     if (route) {
@@ -163,6 +179,11 @@ export default function ToolkitPage() {
     } else if (exercise.id === 'guided-meditation') {
       navigate('/meditation');
     }
+  };
+
+  const handleStartQuickExercise = () => {
+    // Navigate to box breathing as a quick default
+    navigate('/box-breathing');
   };
 
   const filterExercises = (tab: string): Exercise[] => {
@@ -205,11 +226,25 @@ export default function ToolkitPage() {
                 <p className="text-xs text-muted-foreground">Self-care exercises</p>
               </div>
             </div>
+            <ReminderSettingsDialog reminders={reminders} />
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 pt-24 pb-8">
+        {/* Reminder/Completed Banner */}
+        <AnimatePresence>
+          {reminders.shouldShowReminder && !hasCompletedToday && (
+            <ReminderBanner 
+              onDismiss={reminders.dismissReminder}
+              onStartExercise={handleStartQuickExercise}
+            />
+          )}
+          {hasCompletedToday && (
+            <CompletedTodayBanner completionCount={todaysCompletions} />
+          )}
+        </AnimatePresence>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
