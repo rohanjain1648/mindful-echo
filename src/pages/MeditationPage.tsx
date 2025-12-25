@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Square, Volume2, VolumeX, Heart, Brain, Eye, Wind, Sparkles } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useMeditation } from '@/hooks/useMeditation';
 import { MEDITATION_LIBRARY, MeditationScript } from '@/data/meditationLibrary';
+import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 
 const typeIcons = {
   mindfulness: Brain,
@@ -37,6 +38,8 @@ const ambientLabels = {
 
 export default function MeditationPage() {
   const [selectedMeditation, setSelectedMeditation] = useState<MeditationScript | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const hasRecordedRef = useRef(false);
   const {
     status,
     currentStep,
@@ -51,9 +54,21 @@ export default function MeditationPage() {
     ambientVolume,
     setAmbientVolume,
   } = useMeditation();
+  const { recordCompletion } = useExerciseTracker();
+
+  // Record completion when meditation finishes
+  useEffect(() => {
+    if (status === 'complete' && !hasRecordedRef.current && startTimeRef.current && selectedMeditation) {
+      const durationSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      recordCompletion(`meditation-${selectedMeditation.id}`, durationSeconds);
+      hasRecordedRef.current = true;
+    }
+  }, [status, recordCompletion, selectedMeditation]);
 
   const handleStartMeditation = async (meditation: MeditationScript) => {
     setSelectedMeditation(meditation);
+    startTimeRef.current = Date.now();
+    hasRecordedRef.current = false;
     await startMeditation(meditation);
   };
 

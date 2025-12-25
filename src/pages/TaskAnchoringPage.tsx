@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Square, Target, Volume2, VolumeX, SkipForward, CheckCircle2, Circle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { useExercise } from '@/hooks/useExercise';
 import { getExerciseById } from '@/data/exerciseLibrary';
+import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 
 interface TaskStep {
   text: string;
@@ -19,6 +20,8 @@ export default function TaskAnchoringPage() {
   const [hasStarted, setHasStarted] = useState(false);
   const [taskSteps, setTaskSteps] = useState<TaskStep[]>([]);
   const [currentInput, setCurrentInput] = useState('');
+  const startTimeRef = useRef<number | null>(null);
+  const hasRecordedRef = useRef(false);
   const {
     status,
     currentStep,
@@ -35,13 +38,25 @@ export default function TaskAnchoringPage() {
     ambientVolume,
     setAmbientVolume,
   } = useExercise();
+  const { recordCompletion } = useExerciseTracker();
 
   const exercise = getExerciseById('task-anchoring');
+
+  // Record completion when exercise finishes
+  useEffect(() => {
+    if (status === 'complete' && !hasRecordedRef.current && startTimeRef.current) {
+      const durationSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      recordCompletion('task-anchoring', durationSeconds);
+      hasRecordedRef.current = true;
+    }
+  }, [status, recordCompletion]);
 
   const handleStart = async () => {
     if (exercise) {
       setHasStarted(true);
       setTaskSteps([]);
+      startTimeRef.current = Date.now();
+      hasRecordedRef.current = false;
       await startExercise(exercise);
     }
   };
