@@ -127,7 +127,7 @@ export const ToolkitSection = () => {
               support—all customized to your preferences.
             </p>
           </div>
-          <Button variant="outline" className="mt-6 md:mt-0">
+          <Button variant="outline" className="mt-6 md:mt-0" onClick={() => navigate('/toolkit')}>
             View All Exercises
             <ChevronRight className="w-4 h-4" />
           </Button>
