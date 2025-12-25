@@ -350,13 +350,21 @@ serve(async (req) => {
       if (posCount > negCount) sentiment = 1;
       else if (negCount > posCount) sentiment = -1;
 
-      // Store user response in assessment_responses (skip the initial "Start the assessment" message)
+      // Store user response in assessment_responses
+      // User messages flow: [0]=trigger, [1]=response to Q1, [2]=response to Q2, etc.
       const userMessages = messages.filter((m: any) => m.role === 'user');
-      if (sessionId && userMessages.length > 1 && questionIndex > 0) {
+      const userMessageCount = userMessages.length;
+      
+      // Save response if this is an actual answer (not just the trigger message)
+      // userMessageCount=1 means we just have the trigger, userMessageCount=2 means we have trigger + 1 answer
+      if (sessionId && userMessageCount >= 2) {
+        // Get the latest user response (the one we're responding to)
         const userResponse = userMessages[userMessages.length - 1]?.content || '';
-        const currentQuestion = ASSESSMENT_QUESTIONS[questionIndex - 1];
+        // Question index: userMessageCount=2 means answering Q1 (index 0), userMessageCount=3 means answering Q2 (index 1), etc.
+        const answerQuestionIndex = userMessageCount - 2;
+        const currentQuestion = ASSESSMENT_QUESTIONS[answerQuestionIndex];
         
-        if (currentQuestion && userResponse) {
+        if (currentQuestion && userResponse && userResponse.toLowerCase() !== 'start the assessment') {
           // Detect emotion based on sentiment and keywords
           let emotionDetected = 'neutral';
           if (sentiment === 1) emotionDetected = 'positive';
@@ -365,10 +373,10 @@ serve(async (req) => {
           if (lastUserMessage.includes('stress') || lastUserMessage.includes('overwhelm')) emotionDetected = 'stressed';
           if (lastUserMessage.includes('anxious') || lastUserMessage.includes('worry')) emotionDetected = 'anxious';
 
-          console.log('[VoiceAssessment] Saving response for question:', questionIndex - 1);
+          console.log('[VoiceAssessment] Saving response for question index:', answerQuestionIndex, 'userMessageCount:', userMessageCount);
           const { error: responseError } = await supabase.from('assessment_responses').insert({
             session_id: sessionId,
-            question_index: questionIndex - 1,
+            question_index: answerQuestionIndex,
             question_text: currentQuestion.text,
             user_response: userResponse,
             ai_acknowledgment: assistantText,
@@ -379,7 +387,7 @@ serve(async (req) => {
           if (responseError) {
             console.error('[VoiceAssessment] Response save error:', responseError);
           } else {
-            console.log('[VoiceAssessment] Response saved successfully');
+            console.log('[VoiceAssessment] Response saved successfully for Q', answerQuestionIndex + 1);
           }
         }
       }
