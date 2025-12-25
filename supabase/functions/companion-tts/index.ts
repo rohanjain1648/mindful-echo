@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Voice IDs for different emotional tones
+// Voice configurations for different emotional tones using Google TTS
 const VOICE_CONFIG = {
-  default: "EXAVITQu4vr4xnSDxMaL", // Sarah - warm and supportive
-  calm: "FGY2WhTYpPnrIDTdsKH5", // Laura - gentle
-  encouraging: "TX3LPaxmHKxFdv7VOQHJ", // Liam - uplifting
+  default: { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Warm female voice
+  calm: { name: 'en-US-Neural2-C', languageCode: 'en-US' }, // Gentle voice
+  encouraging: { name: 'en-US-Neural2-D', languageCode: 'en-US' }, // Uplifting voice
 };
 
 serve(async (req) => {
@@ -19,78 +18,73 @@ serve(async (req) => {
   }
 
   try {
-    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
-    if (!ELEVENLABS_API_KEY) {
-      throw new Error('ELEVENLABS_API_KEY is not configured');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY is not configured');
     }
 
-    const { text, emotion, voiceId } = await req.json();
+    const { text, emotion } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
     }
 
-    // Select voice based on emotion or use provided voiceId
-    let selectedVoice = voiceId || VOICE_CONFIG.default;
-    
-    // Adjust voice settings based on detected emotion
-    let stability = 0.5;
-    let similarityBoost = 0.75;
-    let style = 0.5;
+    // Select voice based on emotion
+    let selectedVoice = VOICE_CONFIG.default;
+    let speakingRate = 1.0;
+    let pitch = 0;
     
     if (emotion) {
       switch (emotion.toLowerCase()) {
         case 'anxious':
         case 'stressed':
         case 'overwhelmed':
-          stability = 0.7; // More stable for calming effect
-          style = 0.3; // Less expressive, more soothing
           selectedVoice = VOICE_CONFIG.calm;
+          speakingRate = 0.9; // Slower for calming effect
+          pitch = -1;
           break;
         case 'sad':
         case 'down':
         case 'discouraged':
-          stability = 0.6;
-          style = 0.4; // Gentle and warm
           selectedVoice = VOICE_CONFIG.calm;
+          speakingRate = 0.95;
+          pitch = -0.5;
           break;
         case 'frustrated':
         case 'angry':
-          stability = 0.8; // Very stable to be grounding
-          style = 0.2;
           selectedVoice = VOICE_CONFIG.calm;
+          speakingRate = 0.85;
+          pitch = -2;
           break;
         case 'hopeful':
         case 'motivated':
         case 'happy':
-          stability = 0.4;
-          style = 0.6; // More expressive and upbeat
           selectedVoice = VOICE_CONFIG.encouraging;
+          speakingRate = 1.05;
+          pitch = 1;
           break;
         default:
           // Keep defaults
       }
     }
 
-    console.log(`Generating speech with voice: ${selectedVoice}, emotion: ${emotion || 'neutral'}`);
+    console.log(`[CompanionTTS] Generating speech with Google TTS, emotion: ${emotion || 'neutral'}`);
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`,
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`,
       {
         method: 'POST',
-        headers: {
-          'xi-api-key': ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          output_format: 'mp3_44100_128',
-          voice_settings: {
-            stability,
-            similarity_boost: similarityBoost,
-            style,
-            use_speaker_boost: true,
+          input: { text },
+          voice: {
+            languageCode: selectedVoice.languageCode,
+            name: selectedVoice.name,
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate,
+            pitch,
           },
         }),
       }
@@ -98,19 +92,21 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('ElevenLabs API error:', response.status, errorText);
-      throw new Error(`ElevenLabs API error: ${response.status}`);
+      console.error('[CompanionTTS] Google TTS error:', response.status, errorText);
+      throw new Error(`Google TTS error: ${response.status}`);
     }
 
-    const audioBuffer = await response.arrayBuffer();
-    const base64Audio = base64Encode(audioBuffer);
+    const data = await response.json();
+    const base64Audio = data.audioContent;
+
+    console.log('[CompanionTTS] Google TTS generated successfully');
 
     return new Response(JSON.stringify({ audioContent: base64Audio }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('TTS error:', error);
+    console.error('[CompanionTTS] Error:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Failed to generate speech' 
     }), {
