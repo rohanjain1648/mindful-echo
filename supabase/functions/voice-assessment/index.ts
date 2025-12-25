@@ -213,6 +213,18 @@ serve(async (req) => {
     // Process conversation and generate response
     if (action === 'chat') {
       const selectedLanguage = SUPPORTED_LANGUAGES.find(l => l.code === language) || SUPPORTED_LANGUAGES[0];
+      const messageCount = messages.length;
+      const questionIndex = Math.floor(messageCount / 2);
+      
+      // Create session on first message
+      if (messageCount <= 1 && sessionId) {
+        await supabase.from('assessment_sessions').upsert({
+          session_id: sessionId,
+          status: 'in_progress',
+          started_at: new Date().toISOString(),
+          total_questions: 20,
+        }, { onConflict: 'session_id' });
+      }
       
       // Call AI to generate response
       const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -279,7 +291,6 @@ serve(async (req) => {
       }
 
       // Check if assessment is complete (after 20 questions = ~40 messages)
-      const messageCount = messages.length;
       const isComplete = messageCount >= 40 || 
                         assistantText.toLowerCase().includes('would you like to see your') ||
                         (assistantText.toLowerCase().includes('report') && messageCount >= 38);
@@ -298,12 +309,39 @@ serve(async (req) => {
       if (posCount > negCount) sentiment = 1;
       else if (negCount > posCount) sentiment = -1;
 
+      // Store user response in assessment_responses (skip the initial "Start the assessment" message)
+      const userMessages = messages.filter((m: any) => m.role === 'user');
+      if (sessionId && userMessages.length > 1 && questionIndex > 0) {
+        const userResponse = userMessages[userMessages.length - 1]?.content || '';
+        const currentQuestion = ASSESSMENT_QUESTIONS[questionIndex - 1];
+        
+        if (currentQuestion && userResponse) {
+          // Detect emotion based on sentiment and keywords
+          let emotionDetected = 'neutral';
+          if (sentiment === 1) emotionDetected = 'positive';
+          else if (sentiment === -1) emotionDetected = 'concerned';
+          if (lastUserMessage.includes('frustrat')) emotionDetected = 'frustrated';
+          if (lastUserMessage.includes('stress') || lastUserMessage.includes('overwhelm')) emotionDetected = 'stressed';
+          if (lastUserMessage.includes('anxious') || lastUserMessage.includes('worry')) emotionDetected = 'anxious';
+
+          await supabase.from('assessment_responses').insert({
+            session_id: sessionId,
+            question_index: questionIndex - 1,
+            question_text: currentQuestion.text,
+            user_response: userResponse,
+            ai_acknowledgment: assistantText,
+            sentiment_score: sentiment,
+            emotion_detected: emotionDetected,
+          });
+        }
+      }
+
       return new Response(JSON.stringify({ 
         text: assistantText,
         audioContent: base64Audio,
         isComplete,
         sentiment,
-        questionIndex: Math.floor(messageCount / 2),
+        questionIndex,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -373,6 +411,14 @@ Return a JSON object with this exact structure:
           next_steps: report.next_steps,
         },
       });
+
+      // Update session status to completed
+      await supabase.from('assessment_sessions')
+        .update({ 
+          status: 'completed', 
+          completed_at: new Date().toISOString() 
+        })
+        .eq('session_id', sessionId);
 
       return new Response(JSON.stringify(report), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
