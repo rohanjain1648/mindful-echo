@@ -38,7 +38,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "100ms" }}
             >
               Your Voice-First
-              <span className="text-gradient block">ADHD Companion</span>
+              <span className="text-gradient block">Mental Health Companion</span>
             </h1>
 
             {/* Subheadline */}
