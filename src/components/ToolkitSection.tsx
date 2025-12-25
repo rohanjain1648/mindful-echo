@@ -70,6 +70,7 @@ export const ToolkitSection = () => {
       description: "4-4-4-4 breathing technique to calm your nervous system and regain focus.",
       duration: "4 min",
       category: "Grounding",
+      onClick: () => navigate('/box-breathing'),
     },
     {
       icon: <Target className="w-6 h-6" />,
@@ -77,6 +78,7 @@ export const ToolkitSection = () => {
       description: "Break down overwhelming tasks into micro-steps with dopamine checkpoints.",
       duration: "5 min",
       category: "Focus",
+      onClick: () => navigate('/task-anchoring'),
     },
     {
       icon: <Lightbulb className="w-6 h-6" />,
@@ -84,6 +86,7 @@ export const ToolkitSection = () => {
       description: "Voice-guided thought offloading to clear mental clutter and reduce anxiety.",
       duration: "10 min",
       category: "Clarity",
+      onClick: () => navigate('/brain-dump'),
     },
     {
       icon: <TreePine className="w-6 h-6" />,
@@ -91,6 +94,7 @@ export const ToolkitSection = () => {
       description: "Sensory awareness exercise to ground yourself in the present moment.",
       duration: "3 min",
       category: "Grounding",
+      onClick: () => navigate('/senses-grounding'),
     },
     {
       icon: <Waves className="w-6 h-6" />,
@@ -98,6 +102,7 @@ export const ToolkitSection = () => {
       description: "Progressive relaxation to release physical tension and hyperactivity.",
       duration: "8 min",
       category: "Relaxation",
+      onClick: () => navigate('/body-scan'),
     },
   ];
 

@@ -11,6 +11,11 @@ import AssessmentPage from "./pages/AssessmentPage";
 import ReportPage from "./pages/ReportPage";
 import CompanionPage from "./pages/CompanionPage";
 import MeditationPage from "./pages/MeditationPage";
+import BoxBreathingPage from "./pages/BoxBreathingPage";
+import SensesGroundingPage from "./pages/SensesGroundingPage";
+import BodyScanPage from "./pages/BodyScanPage";
+import TaskAnchoringPage from "./pages/TaskAnchoringPage";
+import BrainDumpPage from "./pages/BrainDumpPage";
 import ModerationDashboard from "./pages/ModerationDashboard";
 import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -37,6 +42,11 @@ const App = () => (
             <Route path="/report" element={<ReportPage />} />
             <Route path="/companion" element={<CompanionPage />} />
             <Route path="/meditation" element={<MeditationPage />} />
+            <Route path="/box-breathing" element={<BoxBreathingPage />} />
+            <Route path="/senses-grounding" element={<SensesGroundingPage />} />
+            <Route path="/body-scan" element={<BodyScanPage />} />
+            <Route path="/task-anchoring" element={<TaskAnchoringPage />} />
+            <Route path="/brain-dump" element={<BrainDumpPage />} />
             <Route path="/moderation" element={<ModerationDashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
