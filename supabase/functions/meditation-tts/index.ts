@@ -24,7 +24,8 @@ serve(async (req) => {
 
     const { text, voice = 'sarah', isOmChant = false } = await req.json();
 
-    if (!text) {
+    // For OM chant, we don't need text input
+    if (!text && !isOmChant) {
       throw new Error('Text is required');
     }
 
