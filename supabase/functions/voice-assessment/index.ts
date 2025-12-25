@@ -291,12 +291,18 @@ serve(async (req) => {
       const assistantText = aiData.choices?.[0]?.message?.content || '';
       console.log('[VoiceAssessment] AI response:', assistantText.substring(0, 100));
 
-      // Generate TTS for the response
+      // Generate TTS for the response - use the SAME voiceId throughout the session
+      const consistentVoiceId = voiceId || selectedLanguage.voiceId;
+      console.log('[VoiceAssessment] Using voiceId:', consistentVoiceId);
+      
       let base64Audio = null;
       let ttsError = null;
+      let ttsProvider = 'none';
+      
+      // Try ElevenLabs first
       try {
         const ttsResponse = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || selectedLanguage.voiceId}`,
+          `https://api.elevenlabs.io/v1/text-to-speech/${consistentVoiceId}`,
           {
             method: 'POST',
             headers: {
@@ -320,11 +326,47 @@ serve(async (req) => {
         if (ttsResponse.ok) {
           const audioBuffer = await ttsResponse.arrayBuffer();
           base64Audio = base64Encode(audioBuffer);
-          console.log('[VoiceAssessment] TTS audio generated successfully');
+          ttsProvider = 'elevenlabs';
+          console.log('[VoiceAssessment] ElevenLabs TTS generated successfully');
         } else {
           const errorText = await ttsResponse.text();
-          console.error('[VoiceAssessment] TTS error:', ttsResponse.status, errorText);
-          ttsError = `TTS unavailable (${ttsResponse.status})`;
+          console.error('[VoiceAssessment] ElevenLabs TTS error:', ttsResponse.status, errorText);
+          
+          // Try OpenAI TTS as fallback
+          const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+          if (OPENAI_API_KEY) {
+            console.log('[VoiceAssessment] Trying OpenAI TTS fallback...');
+            try {
+              const openaiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'tts-1',
+                  input: assistantText,
+                  voice: 'nova', // Warm female voice similar to Sarah
+                  response_format: 'mp3',
+                }),
+              });
+              
+              if (openaiResponse.ok) {
+                const audioBuffer = await openaiResponse.arrayBuffer();
+                base64Audio = base64Encode(audioBuffer);
+                ttsProvider = 'openai';
+                console.log('[VoiceAssessment] OpenAI TTS generated successfully');
+              } else {
+                console.error('[VoiceAssessment] OpenAI TTS error:', openaiResponse.status);
+                ttsError = 'Both TTS providers unavailable';
+              }
+            } catch (openaiErr) {
+              console.error('[VoiceAssessment] OpenAI TTS failed:', openaiErr);
+              ttsError = 'TTS fallback failed';
+            }
+          } else {
+            ttsError = `ElevenLabs unavailable (${ttsResponse.status})`;
+          }
         }
       } catch (err) {
         console.error('[VoiceAssessment] TTS failed:', err);
@@ -399,6 +441,8 @@ serve(async (req) => {
         sentiment,
         questionIndex,
         ttsError, // Let frontend know TTS failed so it can use browser speech
+        ttsProvider, // Let frontend know which TTS provider was used
+        voiceIdUsed: consistentVoiceId, // Confirm which voice was used
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
