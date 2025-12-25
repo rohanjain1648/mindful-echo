@@ -6,12 +6,6 @@ import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
 
 export const HeroSection = () => {
-  const stats = [
-    { value: "10K+", label: "Users Helped" },
-    { value: "98%", label: "Satisfaction" },
-    { value: "24/7", label: "AI Support" },
-  ];
-
   const highlights = [
     "Evidence-based ADHD strategies",
     "Private & secure conversations",
@@ -44,7 +38,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "100ms" }}
             >
               Your Voice-First
-              <span className="text-gradient block">Mental Health Companion</span>
+              <span className="text-gradient block">ADHD Companion</span>
             </h1>
 
             {/* Subheadline */}
@@ -53,7 +47,7 @@ export const HeroSection = () => {
               style={{ animationDelay: "200ms" }}
             >
               Experience personalized mental health support through natural voice conversations. Our AI understands your
-              unique journey and provides evidence-based mental health strategies.
+              unique journey and provides evidence-based ADHD strategies.
             </p>
 
             {/* Highlights */}
