@@ -2,10 +2,12 @@ import { Brain, Shield, Mic, MicOff, Volume2, ChevronDown, AlertTriangle, Loader
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { VoiceVisualizer } from "@/components/VoiceVisualizer";
 import { LiveTranscript } from "@/components/LiveTranscript";
 import { useVoiceAssessment, ASSISTANT_VOICES } from "@/hooks/useVoiceAssessment";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 const AssessmentPage = () => {
   const {
@@ -28,6 +30,18 @@ const AssessmentPage = () => {
     generateReport,
     startListening,
   } = useVoiceAssessment();
+
+  // Calculate current question number based on transcript
+  const currentQuestion = useMemo(() => {
+    const userMessages = transcript.filter(t => t.role === 'user').length;
+    // Question number is user messages + 1 (since we start on Q1 after greeting)
+    // Capped at 20
+    return Math.min(userMessages + 1, 20);
+  }, [transcript]);
+
+  const progressPercentage = useMemo(() => {
+    return (currentQuestion / 20) * 100;
+  }, [currentQuestion]);
 
   // Session ended - show summary
   if (status === 'ended') {
@@ -237,6 +251,26 @@ const AssessmentPage = () => {
           </div>
         </div>
       </header>
+
+      {/* Progress Indicator */}
+      <div className="px-4 py-3 bg-muted/30 border-b border-border/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">Question</span>
+              <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-bold text-sm">
+                {currentQuestion} / 20
+              </span>
+            </div>
+            <div className="flex-1 max-w-md">
+              <Progress value={progressPercentage} className="h-2" />
+            </div>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {isComplete ? 'Complete!' : `${Math.round(progressPercentage)}% complete`}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 container mx-auto max-w-6xl">
         {/* Left: Visualizer & Controls */}
