@@ -50,13 +50,14 @@ export interface VoiceConfig {
   id: string;
   label: string;
   description: string;
+  googleVoice: string; // Google TTS voice name
 }
 
 export const ASSISTANT_VOICES: VoiceConfig[] = [
-  { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah', description: 'Warm & Supportive' },
-  { id: 'FGY2WhTYpPnrIDTdsKH5', label: 'Laura', description: 'Gentle & Calm' },
-  { id: 'TX3LPaxmHKxFdv7VOQHJ', label: 'Liam', description: 'Encouraging' },
-  { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George', description: 'Professional' },
+  { id: 'sarah', label: 'Sarah', description: 'Warm & Supportive', googleVoice: 'en-US-Neural2-F' },
+  { id: 'laura', label: 'Laura', description: 'Gentle & Calm', googleVoice: 'en-US-Neural2-C' },
+  { id: 'liam', label: 'Liam', description: 'Encouraging', googleVoice: 'en-US-Neural2-D' },
+  { id: 'george', label: 'George', description: 'Professional', googleVoice: 'en-US-Neural2-J' },
 ];
 
 export const useVoiceAssessment = () => {
