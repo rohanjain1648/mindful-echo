@@ -1,16 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Calm, soothing voices for meditation
-const MEDITATION_VOICES = {
-  'sarah': 'EXAVITQu4vr4xnSDxMaL', // Warm & Supportive
-  'laura': 'FGY2WhTYpPnrIDTdsKH5', // Gentle & Calm
-  'lily': 'pFZP5JQG7iQjIQuC4Bku', // Soft spoken
 };
 
 serve(async (req) => {
@@ -19,62 +11,69 @@ serve(async (req) => {
   }
 
   try {
-    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
 
-    const { text, voice = 'sarah', isOmChant = false } = await req.json();
+    const { text, isOmChant = false } = await req.json();
 
     // For OM chant, we don't need text input
     if (!text && !isOmChant) {
       throw new Error('Text is required');
     }
 
-    console.log('[MeditationTTS] Generating audio for:', text.substring(0, 50) + '...');
-    console.log('[MeditationTTS] Voice:', voice, 'isOmChant:', isOmChant);
+    const textToSpeak = isOmChant ? 'Ommmmm... Ommmmm... Ommmmm...' : text;
+
+    console.log('[MeditationTTS] Generating audio for:', textToSpeak.substring(0, 50) + '...');
+    console.log('[MeditationTTS] isOmChant:', isOmChant);
 
     let base64Audio = null;
     let ttsProvider = 'none';
 
-    const textToSpeak = isOmChant ? 'Ommmmm... Ommmmm... Ommmmm...' : text;
-
-    // Use OpenAI TTS as PRIMARY provider (more reliable)
-    if (OPENAI_API_KEY) {
+    // Use Google Cloud TTS
+    if (GOOGLE_API_KEY) {
       try {
-        console.log('[MeditationTTS] Using OpenAI TTS (primary)...');
-        const openaiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'tts-1-hd', // Higher quality for meditation
-            input: textToSpeak,
-            voice: 'nova', // Calm, soothing voice
-            response_format: 'mp3',
-            speed: isOmChant ? 0.7 : 0.85, // Slower for meditation, even slower for OM
-          }),
-        });
+        console.log('[MeditationTTS] Using Google Cloud TTS...');
+        const response = await fetch(
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { text: textToSpeak },
+              voice: {
+                languageCode: 'en-US',
+                name: 'en-US-Neural2-F', // Calm, soothing female voice
+              },
+              audioConfig: {
+                audioEncoding: 'MP3',
+                speakingRate: isOmChant ? 0.7 : 0.85, // Slower for meditation
+                pitch: isOmChant ? -3 : -1, // Lower pitch for OM
+              },
+            }),
+          }
+        );
 
-        if (openaiResponse.ok) {
-          const audioBuffer = await openaiResponse.arrayBuffer();
-          base64Audio = base64Encode(audioBuffer);
-          ttsProvider = 'openai';
-          console.log('[MeditationTTS] OpenAI TTS generated successfully');
+        if (response.ok) {
+          const data = await response.json();
+          base64Audio = data.audioContent;
+          ttsProvider = 'google';
+          console.log('[MeditationTTS] Google TTS generated successfully');
         } else {
-          console.error('[MeditationTTS] OpenAI TTS error:', openaiResponse.status);
+          const errorText = await response.text();
+          console.error('[MeditationTTS] Google TTS error:', response.status, errorText);
         }
       } catch (err) {
-        console.error('[MeditationTTS] OpenAI TTS failed:', err);
+        console.error('[MeditationTTS] Google TTS failed:', err);
       }
+    } else {
+      console.error('[MeditationTTS] GOOGLE_API_KEY not configured');
     }
 
     if (!base64Audio) {
       return new Response(JSON.stringify({ 
         error: 'TTS generation failed',
-        text: text, // Return text so frontend can use browser TTS
+        text: text,
       }), {
-        status: 200, // Still 200 so frontend can fallback gracefully
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

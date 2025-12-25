@@ -7,18 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Supported Indian languages with their voice configurations
+// Supported Indian languages with their Google TTS voice configurations
 const SUPPORTED_LANGUAGES = [
-  { code: 'en', name: 'English', nativeName: 'English', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'mr', name: 'Marathi', nativeName: 'मराठी', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
-  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  { code: 'en', name: 'English', nativeName: 'English', googleVoice: 'en-US-Neural2-F' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', googleVoice: 'hi-IN-Neural2-A' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', googleVoice: 'ta-IN-Neural2-A' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', googleVoice: 'te-IN-Standard-A' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', googleVoice: 'kn-IN-Standard-A' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', googleVoice: 'bn-IN-Standard-A' },
+  { code: 'mr', name: 'Marathi', nativeName: 'मराठी', googleVoice: 'mr-IN-Standard-A' },
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', googleVoice: 'gu-IN-Standard-A' },
+  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', googleVoice: 'ml-IN-Standard-A' },
+  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', googleVoice: 'pa-IN-Standard-A' },
 ];
 
 // The 20 assessment questions
@@ -190,23 +190,62 @@ ${currentQuestionIndex >= 20 ? '\n- The assessment is complete. Ask if they woul
   }
 }
 
+// Generate TTS using Google Cloud TTS
+async function generateGoogleTTS(text: string, languageCode: string, voiceName: string, apiKey: string): Promise<string | null> {
+  try {
+    console.log('[VoiceAssessment] Using Google Cloud TTS...');
+    const response = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text },
+          voice: {
+            languageCode: languageCode,
+            name: voiceName,
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: 0.95, // Slightly slower for clarity
+            pitch: 0,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[VoiceAssessment] Google TTS error:', response.status, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('[VoiceAssessment] Google TTS generated successfully');
+    return data.audioContent; // Already base64 encoded
+  } catch (err) {
+    console.error('[VoiceAssessment] Google TTS failed:', err);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+    const GOOGLE_API_KEY = Deno.env.get('GOOGLE_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!ELEVENLABS_API_KEY || !LOVABLE_API_KEY) {
+    if (!GOOGLE_API_KEY || !LOVABLE_API_KEY) {
       throw new Error('Required API keys are not configured');
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { action, language, messages, sessionId, voiceId } = await req.json();
+    const { action, language, messages, sessionId } = await req.json();
 
     // Get supported languages
     if (action === 'get_languages') {
@@ -231,7 +270,6 @@ serve(async (req) => {
       // Create session on first message
       if (messageCount <= 1 && sessionId) {
         console.log('[VoiceAssessment] Creating session:', sessionId);
-        // Check if session exists first
         const { data: existingSession } = await supabase
           .from('assessment_sessions')
           .select('id')
@@ -291,61 +329,33 @@ serve(async (req) => {
       const assistantText = aiData.choices?.[0]?.message?.content || '';
       console.log('[VoiceAssessment] AI response:', assistantText.substring(0, 100));
 
-      // Generate TTS for the response
-      let base64Audio = null;
+      // Generate TTS using Google Cloud TTS
+      const googleLanguageCode = selectedLanguage.code === 'en' ? 'en-US' : `${selectedLanguage.code}-IN`;
+      const base64Audio = await generateGoogleTTS(
+        assistantText,
+        googleLanguageCode,
+        selectedLanguage.googleVoice,
+        GOOGLE_API_KEY
+      );
+
       let ttsError = null;
       let ttsProvider = 'none';
       
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-      
-      // Use OpenAI TTS as PRIMARY provider (more reliable)
-      if (OPENAI_API_KEY) {
-        try {
-          console.log('[VoiceAssessment] Using OpenAI TTS (primary)...');
-          const openaiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'tts-1-hd', // Higher quality model
-              input: assistantText,
-              voice: 'nova', // Warm, conversational female voice
-              response_format: 'mp3',
-              speed: 0.95, // Slightly slower for clarity
-            }),
-          });
-          
-          if (openaiResponse.ok) {
-            const audioBuffer = await openaiResponse.arrayBuffer();
-            base64Audio = base64Encode(audioBuffer);
-            ttsProvider = 'openai';
-            console.log('[VoiceAssessment] OpenAI TTS generated successfully');
-          } else {
-            const errorText = await openaiResponse.text();
-            console.error('[VoiceAssessment] OpenAI TTS error:', openaiResponse.status, errorText);
-            ttsError = `OpenAI TTS error: ${openaiResponse.status}`;
-          }
-        } catch (err) {
-          console.error('[VoiceAssessment] OpenAI TTS failed:', err);
-          ttsError = 'OpenAI TTS service error';
-        }
+      if (base64Audio) {
+        ttsProvider = 'google';
       } else {
-        console.error('[VoiceAssessment] OPENAI_API_KEY not configured');
-        ttsError = 'OpenAI API key not configured';
+        ttsError = 'Google TTS generation failed';
       }
 
-      // Check if assessment is complete (after 20 questions = ~40 messages)
+      // Check if assessment is complete
       const isComplete = messageCount >= 40 || 
                         assistantText.toLowerCase().includes('would you like to see your') ||
                         (assistantText.toLowerCase().includes('report') && messageCount >= 38);
 
-      // Analyze sentiment of the last user message (-1, 0, +1)
-      let sentiment = 0; // neutral by default
+      // Analyze sentiment
+      let sentiment = 0;
       const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content?.toLowerCase() || '';
       
-      // Simple sentiment keywords
       const positiveWords = ['good', 'great', 'well', 'fine', 'okay', 'better', 'easy', 'rarely', 'sometimes'];
       const negativeWords = ['bad', 'hard', 'difficult', 'struggle', 'always', 'never', 'terrible', 'awful', 'constantly', 'often'];
       
@@ -356,21 +366,15 @@ serve(async (req) => {
       else if (negCount > posCount) sentiment = -1;
 
       // Store user response in assessment_responses
-      // User messages flow: [0]=trigger, [1]=response to Q1, [2]=response to Q2, etc.
       const userMessages = messages.filter((m: any) => m.role === 'user');
       const userMessageCount = userMessages.length;
       
-      // Save response if this is an actual answer (not just the trigger message)
-      // userMessageCount=1 means we just have the trigger, userMessageCount=2 means we have trigger + 1 answer
       if (sessionId && userMessageCount >= 2) {
-        // Get the latest user response (the one we're responding to)
         const userResponse = userMessages[userMessages.length - 1]?.content || '';
-        // Question index: userMessageCount=2 means answering Q1 (index 0), userMessageCount=3 means answering Q2 (index 1), etc.
         const answerQuestionIndex = userMessageCount - 2;
         const currentQuestion = ASSESSMENT_QUESTIONS[answerQuestionIndex];
         
         if (currentQuestion && userResponse && userResponse.toLowerCase() !== 'start the assessment') {
-          // Detect emotion based on sentiment and keywords
           let emotionDetected = 'neutral';
           if (sentiment === 1) emotionDetected = 'positive';
           else if (sentiment === -1) emotionDetected = 'concerned';
@@ -378,23 +382,32 @@ serve(async (req) => {
           if (lastUserMessage.includes('stress') || lastUserMessage.includes('overwhelm')) emotionDetected = 'stressed';
           if (lastUserMessage.includes('anxious') || lastUserMessage.includes('worry')) emotionDetected = 'anxious';
 
-          console.log('[VoiceAssessment] Saving response for question index:', answerQuestionIndex, 'userMessageCount:', userMessageCount);
+          console.log('[VoiceAssessment] Saving response for question index:', answerQuestionIndex);
           const { error: responseError } = await supabase.from('assessment_responses').insert({
             session_id: sessionId,
             question_index: answerQuestionIndex,
             question_text: currentQuestion.text,
             user_response: userResponse,
-            ai_acknowledgment: assistantText,
-            sentiment_score: sentiment,
+            ai_acknowledgment: assistantText.substring(0, 200),
             emotion_detected: emotionDetected,
+            sentiment_score: sentiment,
           });
           
           if (responseError) {
             console.error('[VoiceAssessment] Response save error:', responseError);
-          } else {
-            console.log('[VoiceAssessment] Response saved successfully for Q', answerQuestionIndex + 1);
           }
         }
+      }
+
+      // Update session if complete
+      if (isComplete && sessionId) {
+        await supabase
+          .from('assessment_sessions')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('session_id', sessionId);
       }
 
       return new Response(JSON.stringify({ 
@@ -421,35 +434,19 @@ serve(async (req) => {
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            {
-              role: 'system',
-              content: `You are an expert ADHD assessment analyst. Based on the conversation history, generate a comprehensive assessment report.
+            { 
+              role: 'system', 
+              content: `You are a mental health assessment analyzer. Based on the conversation transcript provided, generate a structured report with:
+1. Overall observation
+2. Key patterns identified
+3. Areas of strength
+4. Areas of concern
+5. Recommendations
 
-Return a JSON object with this exact structure:
-{
-  "overall_sentiment_score": 0.0-1.0,
-  "primary_patterns": ["pattern1", "pattern2"],
-  "strengths": ["strength1", "strength2"],
-  "challenges": ["challenge1", "challenge2"],
-  "category_scores": {
-    "impulsivity": 0.0-1.0,
-    "hyperactivity": 0.0-1.0,
-    "inattention": 0.0-1.0,
-    "executive_function": 0.0-1.0,
-    "emotional_regulation": 0.0-1.0
-  },
-  "recommendations": [
-    {"area": "area1", "suggestion": "suggestion1", "priority": "high|medium|low"}
-  ],
-  "summary": "2-3 sentence summary",
-  "next_steps": ["step1", "step2"],
-  "disclaimer": "This is a screening tool, not a diagnosis. Please consult a healthcare professional."
-}`
+Be empathetic and non-diagnostic. Use professional but accessible language.` 
             },
-            ...messages,
-            { role: 'user', content: 'Generate the assessment report based on our conversation.' }
+            { role: 'user', content: `Analyze this assessment conversation and provide a report:\n\n${JSON.stringify(messages)}` },
           ],
-          response_format: { type: 'json_object' },
         }),
       });
 
@@ -458,32 +455,9 @@ Return a JSON object with this exact structure:
       }
 
       const reportData = await reportResponse.json();
-      const report = JSON.parse(reportData.choices?.[0]?.message?.content || '{}');
+      const report = reportData.choices?.[0]?.message?.content || 'Unable to generate report';
 
-      // Store report in database
-      await supabase.from('assessment_reports').insert({
-        session_id: sessionId,
-        overall_sentiment_score: report.overall_sentiment_score,
-        primary_patterns: report.primary_patterns,
-        strengths: report.strengths,
-        challenges: report.challenges,
-        recommendations: report.recommendations,
-        detailed_analysis: {
-          category_scores: report.category_scores,
-          summary: report.summary,
-          next_steps: report.next_steps,
-        },
-      });
-
-      // Update session status to completed
-      await supabase.from('assessment_sessions')
-        .update({ 
-          status: 'completed', 
-          completed_at: new Date().toISOString() 
-        })
-        .eq('session_id', sessionId);
-
-      return new Response(JSON.stringify(report), {
+      return new Response(JSON.stringify({ report }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -494,10 +468,9 @@ Return a JSON object with this exact structure:
     });
 
   } catch (error) {
-    console.error('Voice assessment error:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }), {
+    console.error('[VoiceAssessment] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
