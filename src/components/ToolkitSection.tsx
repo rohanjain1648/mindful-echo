@@ -9,8 +9,10 @@ import {
   Waves,
   ChevronRight,
   Sparkles,
-  Play
+  Play,
+  Moon
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface ToolkitItemProps {
   icon: React.ReactNode;
@@ -18,10 +20,11 @@ interface ToolkitItemProps {
   description: string;
   duration: string;
   category: string;
+  onClick?: () => void;
 }
 
-const ToolkitItem = ({ icon, title, description, duration, category }: ToolkitItemProps) => (
-  <Card className="group cursor-pointer hover:border-primary/30">
+const ToolkitItem = ({ icon, title, description, duration, category, onClick }: ToolkitItemProps) => (
+  <Card className="group cursor-pointer hover:border-primary/30" onClick={onClick}>
     <CardHeader className="pb-3">
       <div className="flex items-start justify-between">
         <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-primary group-hover:gradient-hero group-hover:text-primary-foreground transition-all duration-300">
@@ -50,7 +53,17 @@ const ToolkitItem = ({ icon, title, description, duration, category }: ToolkitIt
 );
 
 export const ToolkitSection = () => {
+  const navigate = useNavigate();
+
   const exercises = [
+    {
+      icon: <Moon className="w-6 h-6" />,
+      title: "Guided Meditation",
+      description: "AI-guided meditation sessions with ambient sounds and calming voice narration.",
+      duration: "5-15 min",
+      category: "Mindfulness",
+      onClick: () => navigate('/meditation'),
+    },
     {
       icon: <Wind className="w-6 h-6" />,
       title: "Box Breathing",
@@ -85,13 +98,6 @@ export const ToolkitSection = () => {
       description: "Progressive relaxation to release physical tension and hyperactivity.",
       duration: "8 min",
       category: "Relaxation",
-    },
-    {
-      icon: <Sparkles className="w-6 h-6" />,
-      title: "Dopamine Menu",
-      description: "Create your personalized list of healthy stimulation options for low-energy days.",
-      duration: "15 min",
-      category: "Energy",
     },
   ];
 
