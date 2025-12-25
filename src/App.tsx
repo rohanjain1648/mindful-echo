@@ -10,6 +10,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import AssessmentPage from "./pages/AssessmentPage";
 import ReportPage from "./pages/ReportPage";
 import CompanionPage from "./pages/CompanionPage";
+import MeditationPage from "./pages/MeditationPage";
 import ModerationDashboard from "./pages/ModerationDashboard";
 import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/assessment" element={<AssessmentPage />} />
             <Route path="/report" element={<ReportPage />} />
             <Route path="/companion" element={<CompanionPage />} />
+            <Route path="/meditation" element={<MeditationPage />} />
             <Route path="/moderation" element={<ModerationDashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
