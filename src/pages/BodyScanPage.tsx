@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Square, Waves, Volume2, VolumeX, SkipForward } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { useExercise } from '@/hooks/useExercise';
 import { getExerciseById } from '@/data/exerciseLibrary';
+import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 
 // Body parts for visual indication
 const bodyParts = [
@@ -23,6 +24,8 @@ const bodyParts = [
 
 export default function BodyScanPage() {
   const [hasStarted, setHasStarted] = useState(false);
+  const startTimeRef = useRef<number | null>(null);
+  const hasRecordedRef = useRef(false);
   const {
     status,
     currentStep,
@@ -38,12 +41,24 @@ export default function BodyScanPage() {
     ambientVolume,
     setAmbientVolume,
   } = useExercise();
+  const { recordCompletion } = useExerciseTracker();
 
   const exercise = getExerciseById('body-scan');
+
+  // Record completion when exercise finishes
+  useEffect(() => {
+    if (status === 'complete' && !hasRecordedRef.current && startTimeRef.current) {
+      const durationSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      recordCompletion('body-scan', durationSeconds);
+      hasRecordedRef.current = true;
+    }
+  }, [status, recordCompletion]);
 
   const handleStart = async () => {
     if (exercise) {
       setHasStarted(true);
+      startTimeRef.current = Date.now();
+      hasRecordedRef.current = false;
       await startExercise(exercise);
     }
   };

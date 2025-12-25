@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Square, TreePine, Volume2, VolumeX, SkipForward, Eye, Hand, Ear, Wind as Nose, Coffee } from 'lucide-react';
@@ -8,9 +8,12 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { useExercise } from '@/hooks/useExercise';
 import { getExerciseById } from '@/data/exerciseLibrary';
+import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 
 export default function SensesGroundingPage() {
   const [hasStarted, setHasStarted] = useState(false);
+  const startTimeRef = useRef<number | null>(null);
+  const hasRecordedRef = useRef(false);
   const {
     status,
     currentStep,
@@ -27,12 +30,24 @@ export default function SensesGroundingPage() {
     ambientVolume,
     setAmbientVolume,
   } = useExercise();
+  const { recordCompletion } = useExerciseTracker();
 
   const exercise = getExerciseById('senses-grounding');
+
+  // Record completion when exercise finishes
+  useEffect(() => {
+    if (status === 'complete' && !hasRecordedRef.current && startTimeRef.current) {
+      const durationSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      recordCompletion('senses-grounding', durationSeconds);
+      hasRecordedRef.current = true;
+    }
+  }, [status, recordCompletion]);
 
   const handleStart = async () => {
     if (exercise) {
       setHasStarted(true);
+      startTimeRef.current = Date.now();
+      hasRecordedRef.current = false;
       await startExercise(exercise);
     }
   };
