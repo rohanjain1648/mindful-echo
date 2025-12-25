@@ -39,53 +39,60 @@ export const useExerciseTracker = (): UseExerciseTrackerReturn => {
 
   const sessionId = getSessionId();
 
-  // Fetch completions and favorites
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch completions
+      const { data: completions, error: completionsError } = await supabase
+        .from('exercise_completions')
+        .select('exercise_id, completed_at')
+        .eq('session_id', sessionId)
+        .order('completed_at', { ascending: false });
+
+      if (completionsError) throw completionsError;
+
+      // Fetch favorites
+      const { data: favs, error: favsError } = await supabase
+        .from('exercise_favorites')
+        .select('exercise_id')
+        .eq('session_id', sessionId);
+
+      if (favsError) throw favsError;
+
+      // Process completions into stats
+      const newStats: Record<string, ExerciseStats> = {};
+      EXERCISE_LIBRARY.forEach(exercise => {
+        const exerciseCompletions = completions?.filter(c => c.exercise_id === exercise.id) || [];
+        newStats[exercise.id] = {
+          exerciseId: exercise.id,
+          completionCount: exerciseCompletions.length,
+          lastCompleted: exerciseCompletions.length > 0 
+            ? new Date(exerciseCompletions[0].completed_at) 
+            : null,
+          isFavorite: favs?.some(f => f.exercise_id === exercise.id) || false,
+        };
+      });
+
+      setStats(newStats);
+      setFavorites(favs?.map(f => f.exercise_id) || []);
+    } catch (error) {
+      console.error('Error fetching exercise data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sessionId]);
+
+  // Fetch on mount and refetch when window gains focus (user returns to page)
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch completions
-        const { data: completions, error: completionsError } = await supabase
-          .from('exercise_completions')
-          .select('exercise_id, completed_at')
-          .eq('session_id', sessionId)
-          .order('completed_at', { ascending: false });
+    fetchData();
 
-        if (completionsError) throw completionsError;
-
-        // Fetch favorites
-        const { data: favs, error: favsError } = await supabase
-          .from('exercise_favorites')
-          .select('exercise_id')
-          .eq('session_id', sessionId);
-
-        if (favsError) throw favsError;
-
-        // Process completions into stats
-        const newStats: Record<string, ExerciseStats> = {};
-        EXERCISE_LIBRARY.forEach(exercise => {
-          const exerciseCompletions = completions?.filter(c => c.exercise_id === exercise.id) || [];
-          newStats[exercise.id] = {
-            exerciseId: exercise.id,
-            completionCount: exerciseCompletions.length,
-            lastCompleted: exerciseCompletions.length > 0 
-              ? new Date(exerciseCompletions[0].completed_at) 
-              : null,
-            isFavorite: favs?.some(f => f.exercise_id === exercise.id) || false,
-          };
-        });
-
-        setStats(newStats);
-        setFavorites(favs?.map(f => f.exercise_id) || []);
-      } catch (error) {
-        console.error('Error fetching exercise data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    const handleFocus = () => {
+      fetchData();
     };
 
-    fetchData();
-  }, [sessionId]);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [fetchData]);
 
   const toggleFavorite = useCallback(async (exerciseId: string) => {
     const isFavorite = favorites.includes(exerciseId);
