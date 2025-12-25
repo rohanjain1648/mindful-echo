@@ -21,6 +21,58 @@ const SUPPORTED_LANGUAGES = [
   { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', googleVoice: 'pa-IN-Standard-A' },
 ];
 
+// Google TTS voice mapping for different assistant personalities
+const VOICE_PERSONALITIES: Record<string, Record<string, string>> = {
+  'sarah': { // Warm & Supportive - Female
+    'en': 'en-US-Neural2-F',
+    'hi': 'hi-IN-Neural2-A',
+    'ta': 'ta-IN-Neural2-A',
+    'te': 'te-IN-Standard-A',
+    'kn': 'kn-IN-Standard-A',
+    'bn': 'bn-IN-Standard-A',
+    'mr': 'mr-IN-Standard-A',
+    'gu': 'gu-IN-Standard-A',
+    'ml': 'ml-IN-Standard-A',
+    'pa': 'pa-IN-Standard-A',
+  },
+  'laura': { // Gentle & Calm - Female
+    'en': 'en-US-Neural2-C',
+    'hi': 'hi-IN-Neural2-D',
+    'ta': 'ta-IN-Neural2-C',
+    'te': 'te-IN-Standard-B',
+    'kn': 'kn-IN-Standard-B',
+    'bn': 'bn-IN-Standard-B',
+    'mr': 'mr-IN-Standard-B',
+    'gu': 'gu-IN-Standard-B',
+    'ml': 'ml-IN-Standard-B',
+    'pa': 'pa-IN-Standard-B',
+  },
+  'liam': { // Encouraging - Male
+    'en': 'en-US-Neural2-D',
+    'hi': 'hi-IN-Neural2-B',
+    'ta': 'ta-IN-Neural2-B',
+    'te': 'te-IN-Standard-A',
+    'kn': 'kn-IN-Standard-A',
+    'bn': 'bn-IN-Standard-A',
+    'mr': 'mr-IN-Standard-A',
+    'gu': 'gu-IN-Standard-A',
+    'ml': 'ml-IN-Standard-A',
+    'pa': 'pa-IN-Standard-A',
+  },
+  'george': { // Professional - Male
+    'en': 'en-US-Neural2-J',
+    'hi': 'hi-IN-Neural2-C',
+    'ta': 'ta-IN-Neural2-D',
+    'te': 'te-IN-Standard-B',
+    'kn': 'kn-IN-Standard-B',
+    'bn': 'bn-IN-Standard-B',
+    'mr': 'mr-IN-Standard-B',
+    'gu': 'gu-IN-Standard-B',
+    'ml': 'ml-IN-Standard-B',
+    'pa': 'pa-IN-Standard-B',
+  },
+};
+
 // The 20 assessment questions
 const ASSESSMENT_QUESTIONS = [
   {
@@ -245,7 +297,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { action, language, messages, sessionId } = await req.json();
+    const { action, language, messages, sessionId, voiceId } = await req.json();
 
     // Get supported languages
     if (action === 'get_languages') {
@@ -329,12 +381,20 @@ serve(async (req) => {
       const assistantText = aiData.choices?.[0]?.message?.content || '';
       console.log('[VoiceAssessment] AI response:', assistantText.substring(0, 100));
 
-      // Generate TTS using Google Cloud TTS
+      // Generate TTS using Google Cloud TTS with selected voice personality
       const googleLanguageCode = selectedLanguage.code === 'en' ? 'en-US' : `${selectedLanguage.code}-IN`;
+      
+      // Get the voice based on selected personality (sarah, laura, liam, george) and language
+      const voicePersonality = voiceId?.toLowerCase() || 'sarah';
+      const voiceMap = VOICE_PERSONALITIES[voicePersonality] || VOICE_PERSONALITIES['sarah'];
+      const googleVoiceName = voiceMap[selectedLanguage.code] || voiceMap['en'] || 'en-US-Neural2-F';
+      
+      console.log('[VoiceAssessment] Using voice:', voicePersonality, '->', googleVoiceName);
+      
       const base64Audio = await generateGoogleTTS(
         assistantText,
         googleLanguageCode,
-        selectedLanguage.googleVoice,
+        googleVoiceName,
         GOOGLE_API_KEY
       );
 
