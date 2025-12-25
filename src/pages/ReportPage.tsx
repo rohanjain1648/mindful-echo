@@ -479,7 +479,7 @@ const ReportPage = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {displayData.strengths.map((strength, index) => (
+                {(displayData.strengths || []).map((strength, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                       <CheckCircle2 className="w-3 h-3 text-primary" />
@@ -500,7 +500,7 @@ const ReportPage = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {displayData.challenges.map((challenge, index) => (
+                {(displayData.challenges || []).map((challenge, index) => (
                   <li key={index} className="flex items-start gap-3">
                     <div className="w-5 h-5 rounded-full bg-warm/20 flex items-center justify-center shrink-0 mt-0.5">
                       <AlertCircle className="w-3 h-3 text-warm" />
@@ -526,7 +526,7 @@ const ReportPage = () => {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
-              {displayData.recommendations.map((rec, index) => (
+              {(displayData.recommendations || []).map((rec, index) => (
                 <div
                   key={index}
                   className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-primary/30 transition-colors"
