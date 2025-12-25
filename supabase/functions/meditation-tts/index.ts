@@ -34,54 +34,12 @@ serve(async (req) => {
     let base64Audio = null;
     let ttsProvider = 'none';
 
-    // For OM chanting, we use a special approach with slower, more resonant settings
-    const voiceId = MEDITATION_VOICES[voice as keyof typeof MEDITATION_VOICES] || MEDITATION_VOICES.sarah;
-    
-    // Voice settings optimized for meditation - slower, calmer
-    const meditationVoiceSettings = {
-      stability: 0.85, // Very stable for calm meditation
-      similarity_boost: 0.6,
-      style: isOmChant ? 0.1 : 0.3, // Lower style for OM to be more monotone
-      use_speaker_boost: false, // Softer delivery
-    };
+    const textToSpeak = isOmChant ? 'Ommmmm... Ommmmm... Ommmmm...' : text;
 
-    // Try ElevenLabs first
-    if (ELEVENLABS_API_KEY) {
+    // Use OpenAI TTS as PRIMARY provider (more reliable)
+    if (OPENAI_API_KEY) {
       try {
-        const ttsResponse = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-          {
-            method: 'POST',
-            headers: {
-              'xi-api-key': ELEVENLABS_API_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              text: isOmChant ? 'Ommmmm... Ommmmm... Ommmmm...' : text,
-              model_id: 'eleven_multilingual_v2',
-              output_format: 'mp3_44100_128',
-              voice_settings: meditationVoiceSettings,
-            }),
-          }
-        );
-
-        if (ttsResponse.ok) {
-          const audioBuffer = await ttsResponse.arrayBuffer();
-          base64Audio = base64Encode(audioBuffer);
-          ttsProvider = 'elevenlabs';
-          console.log('[MeditationTTS] ElevenLabs audio generated successfully');
-        } else {
-          console.error('[MeditationTTS] ElevenLabs error:', ttsResponse.status);
-        }
-      } catch (err) {
-        console.error('[MeditationTTS] ElevenLabs failed:', err);
-      }
-    }
-
-    // Fallback to OpenAI TTS
-    if (!base64Audio && OPENAI_API_KEY) {
-      try {
-        console.log('[MeditationTTS] Trying OpenAI TTS fallback...');
+        console.log('[MeditationTTS] Using OpenAI TTS (primary)...');
         const openaiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
           method: 'POST',
           headers: {
@@ -90,7 +48,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: 'tts-1-hd', // Higher quality for meditation
-            input: isOmChant ? 'Ommmmm... Ommmmm... Ommmmm...' : text,
+            input: textToSpeak,
             voice: 'nova', // Calm, soothing voice
             response_format: 'mp3',
             speed: isOmChant ? 0.7 : 0.85, // Slower for meditation, even slower for OM
