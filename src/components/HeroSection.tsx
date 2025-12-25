@@ -6,6 +6,12 @@ import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
 
 export const HeroSection = () => {
+  const stats = [
+    { value: "10K+", label: "Users Helped" },
+    { value: "98%", label: "Satisfaction" },
+    { value: "24/7", label: "AI Support" },
+  ];
+
   const highlights = [
     "Evidence-based ADHD strategies",
     "Private & secure conversations",
