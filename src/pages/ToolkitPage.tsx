@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 import { Exercise } from '@/data/exerciseLibrary';
 import { formatDistanceToNow } from 'date-fns';
+import { ProgressCharts } from '@/components/ProgressCharts';
 
 const exerciseIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Wind,
@@ -261,6 +262,9 @@ export default function ToolkitPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Progress Charts */}
+        <ProgressCharts />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
