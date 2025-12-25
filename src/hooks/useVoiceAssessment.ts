@@ -82,6 +82,39 @@ export const useVoiceAssessment = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Browser TTS fallback when ElevenLabs is unavailable
+  const speakWithBrowserTTS = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) {
+        console.log('[VoiceAssessment] Browser TTS not supported');
+        resolve();
+        return;
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = speechRate;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      // Try to find a good voice
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Female')) ||
+                          voices.find(v => v.lang.startsWith('en')) ||
+                          voices[0];
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+
+      window.speechSynthesis.speak(utterance);
+    });
+  }, [speechRate]);
+
   // Fetch available languages on mount
   useEffect(() => {
     const fetchLanguages = async () => {
@@ -230,9 +263,15 @@ export const useVoiceAssessment = () => {
         isCompleteRef.current = true;
       }
 
-      // Play audio response if available
+      // Play audio response if available, or use browser TTS as fallback
       if (data.audioContent) {
         await playAudio(data.audioContent);
+      } else if (data.text) {
+        // Fallback to browser speech synthesis when ElevenLabs TTS fails
+        console.log('[VoiceAssessment] Using browser TTS fallback');
+        setIsAssistantSpeaking(true);
+        await speakWithBrowserTTS(data.text);
+        setIsAssistantSpeaking(false);
       }
       
       // Start listening after response (if not complete)
@@ -439,10 +478,17 @@ export const useVoiceAssessment = () => {
 
       setStatus('active');
 
-      // Play greeting audio then start listening
+      // Play greeting audio then start listening, or use browser TTS fallback
       if (data.audioContent) {
         await playAudio(data.audioContent);
         console.log('[VoiceAssessment] Greeting finished, starting to listen...');
+        startListeningRef.current?.();
+      } else if (data.text) {
+        // Fallback to browser TTS
+        console.log('[VoiceAssessment] Using browser TTS for greeting');
+        setIsAssistantSpeaking(true);
+        await speakWithBrowserTTS(data.text);
+        setIsAssistantSpeaking(false);
         startListeningRef.current?.();
       }
 
@@ -451,7 +497,7 @@ export const useVoiceAssessment = () => {
       setError('Failed to start session. Please try again.');
       setStatus('error');
     }
-  }, [selectedLanguage, selectedVoice, playAudio]);
+  }, [selectedLanguage, selectedVoice, playAudio, speakWithBrowserTTS]);
 
   const endSession = useCallback(() => {
     console.log('[VoiceAssessment] Ending session...');

@@ -218,12 +218,30 @@ serve(async (req) => {
       
       // Create session on first message
       if (messageCount <= 1 && sessionId) {
-        await supabase.from('assessment_sessions').upsert({
-          session_id: sessionId,
-          status: 'in_progress',
-          started_at: new Date().toISOString(),
-          total_questions: 20,
-        }, { onConflict: 'session_id' });
+        console.log('[VoiceAssessment] Creating session:', sessionId);
+        // Check if session exists first
+        const { data: existingSession } = await supabase
+          .from('assessment_sessions')
+          .select('id')
+          .eq('session_id', sessionId)
+          .maybeSingle();
+        
+        if (!existingSession) {
+          const { error: sessionError } = await supabase.from('assessment_sessions').insert({
+            session_id: sessionId,
+            status: 'in_progress',
+            started_at: new Date().toISOString(),
+            total_questions: 20,
+          });
+          
+          if (sessionError) {
+            console.error('[VoiceAssessment] Session creation error:', sessionError);
+          } else {
+            console.log('[VoiceAssessment] Session created successfully');
+          }
+        } else {
+          console.log('[VoiceAssessment] Session already exists');
+        }
       }
       
       // Call AI to generate response
@@ -254,9 +272,11 @@ serve(async (req) => {
 
       const aiData = await aiResponse.json();
       const assistantText = aiData.choices?.[0]?.message?.content || '';
+      console.log('[VoiceAssessment] AI response:', assistantText.substring(0, 100));
 
       // Generate TTS for the response
       let base64Audio = null;
+      let ttsError = null;
       try {
         const ttsResponse = await fetch(
           `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || selectedLanguage.voiceId}`,
@@ -283,11 +303,15 @@ serve(async (req) => {
         if (ttsResponse.ok) {
           const audioBuffer = await ttsResponse.arrayBuffer();
           base64Audio = base64Encode(audioBuffer);
+          console.log('[VoiceAssessment] TTS audio generated successfully');
         } else {
-          console.error('TTS error:', ttsResponse.status, await ttsResponse.text());
+          const errorText = await ttsResponse.text();
+          console.error('[VoiceAssessment] TTS error:', ttsResponse.status, errorText);
+          ttsError = `TTS unavailable (${ttsResponse.status})`;
         }
-      } catch (ttsError) {
-        console.error('TTS failed:', ttsError);
+      } catch (err) {
+        console.error('[VoiceAssessment] TTS failed:', err);
+        ttsError = 'TTS service error';
       }
 
       // Check if assessment is complete (after 20 questions = ~40 messages)
@@ -324,7 +348,8 @@ serve(async (req) => {
           if (lastUserMessage.includes('stress') || lastUserMessage.includes('overwhelm')) emotionDetected = 'stressed';
           if (lastUserMessage.includes('anxious') || lastUserMessage.includes('worry')) emotionDetected = 'anxious';
 
-          await supabase.from('assessment_responses').insert({
+          console.log('[VoiceAssessment] Saving response for question:', questionIndex - 1);
+          const { error: responseError } = await supabase.from('assessment_responses').insert({
             session_id: sessionId,
             question_index: questionIndex - 1,
             question_text: currentQuestion.text,
@@ -333,6 +358,12 @@ serve(async (req) => {
             sentiment_score: sentiment,
             emotion_detected: emotionDetected,
           });
+          
+          if (responseError) {
+            console.error('[VoiceAssessment] Response save error:', responseError);
+          } else {
+            console.log('[VoiceAssessment] Response saved successfully');
+          }
         }
       }
 
@@ -342,6 +373,7 @@ serve(async (req) => {
         isComplete,
         sentiment,
         questionIndex,
+        ttsError, // Let frontend know TTS failed so it can use browser speech
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
