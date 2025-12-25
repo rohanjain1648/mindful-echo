@@ -146,8 +146,8 @@ const ASSESSMENT_QUESTIONS = [
 ];
 
 // Get system instruction for voice agent
-function getSystemInstruction(language: string): string {
-  return `You are a compassionate mental wellness assessment companion named Nutrail. You are conducting an ADHD assessment through voice conversation.
+function getSystemInstruction(language: string, isFirstMessage: boolean, currentQuestionIndex: number): string {
+  const baseInstruction = `You are a compassionate mental wellness assessment companion named Nutrail. You are conducting an ADHD assessment through voice conversation.
 
 LANGUAGE: Respond in ${language}. Be conversational and warm.
 
@@ -158,24 +158,36 @@ YOUR ROLE:
 - Keep responses SHORT (1-2 sentences max for acknowledgments)
 - After question 20, offer to show the assessment report
 
-CONVERSATION FLOW:
-1. Greet the user warmly and explain you'll be asking 20 questions
-2. Ask questions naturally, one at a time
-3. After each response, acknowledge briefly and transition to next question
-4. Track which question you're on (1-20)
-5. After the last question (20), say: "Thank you for sharing. I've completed the assessment. Would you like to see your detailed report now?"
+QUESTIONS TO ASK (in order):
+${ASSESSMENT_QUESTIONS.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}
 
 IMPORTANT RULES:
 - Be empathetic but concise
 - Never provide medical diagnoses
+- NEVER repeat a question you already asked
+- NEVER re-introduce yourself after the first message
 - If user shows distress, offer supportive words
-- Keep the conversation flowing naturally
-- Use the user's name if they provide it
+- Keep the conversation flowing naturally`;
 
-CURRENT QUESTIONS TO ASK (in order):
-${ASSESSMENT_QUESTIONS.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}
+  if (isFirstMessage) {
+    return baseInstruction + `
 
-Start by introducing yourself and asking the first question.`;
+THIS IS THE START OF THE CONVERSATION:
+- Greet the user warmly and briefly explain you'll be asking 20 questions about their experiences
+- Then ask ONLY Question 1: "${ASSESSMENT_QUESTIONS[0].text}"
+- Do NOT ask multiple questions at once`;
+  } else {
+    return baseInstruction + `
+
+CURRENT STATUS:
+- You have already introduced yourself and started the assessment
+- You are now on Question ${currentQuestionIndex + 1} of 20
+- DO NOT re-introduce yourself or repeat the greeting
+- DO NOT repeat any previous questions
+- Briefly acknowledge the user's previous response (1-2 sentences max)
+- Then ask the NEXT question: "${ASSESSMENT_QUESTIONS[Math.min(currentQuestionIndex, 19)]?.text || 'Thank you for completing the assessment. Would you like to see your detailed report now?'}"
+${currentQuestionIndex >= 20 ? '\n- The assessment is complete. Ask if they would like to see their detailed report.' : ''}`;
+  }
 }
 
 serve(async (req) => {
@@ -244,6 +256,11 @@ serve(async (req) => {
         }
       }
       
+      const isFirstMessage = messages.length <= 1;
+      const currentQuestionIndex = Math.floor((messages.length - 1) / 2);
+      
+      console.log('[VoiceAssessment] isFirstMessage:', isFirstMessage, 'currentQuestionIndex:', currentQuestionIndex);
+      
       // Call AI to generate response
       const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -254,7 +271,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            { role: 'system', content: getSystemInstruction(selectedLanguage.name) },
+            { role: 'system', content: getSystemInstruction(selectedLanguage.name, isFirstMessage, currentQuestionIndex) },
             ...messages,
           ],
         }),
