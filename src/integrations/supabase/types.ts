@@ -344,6 +344,45 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_entries: {
+        Row: {
+          ai_prompt: string | null
+          content: string
+          created_at: string
+          id: string
+          mood: string | null
+          session_id: string | null
+          tags: string[] | null
+          title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ai_prompt?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          mood?: string | null
+          session_id?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ai_prompt?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          mood?: string | null
+          session_id?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       moderation_logs: {
         Row: {
           confidence: number | null
