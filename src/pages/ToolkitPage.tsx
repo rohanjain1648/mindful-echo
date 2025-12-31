@@ -26,6 +26,7 @@ import { useExerciseTracker } from '@/hooks/useExerciseTracker';
 import { Exercise } from '@/data/exerciseLibrary';
 import { formatDistanceToNow } from 'date-fns';
 import { ProgressCharts } from '@/components/ProgressCharts';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { useReminders } from '@/hooks/useReminders';
 import { ReminderBanner, CompletedTodayBanner, ReminderSettingsDialog } from '@/components/ReminderComponents';
 import { AnimatePresence } from 'framer-motion';
@@ -297,6 +298,9 @@ export default function ToolkitPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Activity Heatmap with Streak */}
+        <ActivityHeatmap />
 
         {/* Progress Charts */}
         <ProgressCharts />
