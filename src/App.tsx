@@ -16,6 +16,7 @@ import SensesGroundingPage from "./pages/SensesGroundingPage";
 import BodyScanPage from "./pages/BodyScanPage";
 import TaskAnchoringPage from "./pages/TaskAnchoringPage";
 import BrainDumpPage from "./pages/BrainDumpPage";
+import JournalPage from "./pages/JournalPage";
 import ToolkitPage from "./pages/ToolkitPage";
 import ModerationDashboard from "./pages/ModerationDashboard";
 import AuthPage from "./pages/AuthPage";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/body-scan" element={<BodyScanPage />} />
             <Route path="/task-anchoring" element={<TaskAnchoringPage />} />
             <Route path="/brain-dump" element={<BrainDumpPage />} />
+            <Route path="/journal" element={<JournalPage />} />
             <Route path="/toolkit" element={<ToolkitPage />} />
             <Route path="/moderation" element={<ModerationDashboard />} />
             <Route path="/profile" element={<ProfilePage />} />

@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.meditation-tts]
 verify_jwt = false
+
+[functions.journal-prompts]
+verify_jwt = false

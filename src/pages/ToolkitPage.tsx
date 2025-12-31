@@ -15,7 +15,8 @@ import {
   Play,
   Star,
   CheckCircle2,
-  Flame
+  Flame,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -392,8 +393,28 @@ export default function ToolkitPage() {
           </TabsContent>
         </Tabs>
 
+        {/* Journal CTA */}
+        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+              <BookOpen className="w-5 h-5 text-violet-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-foreground mb-1">AI-Guided Journaling</h4>
+              <p className="text-muted-foreground text-sm">
+                Get personalized prompts based on your mood and reflect on your thoughts with AI-powered guidance.
+              </p>
+            </div>
+            <Link to="/journal">
+              <Button variant="default" size="sm" className="shrink-0 bg-violet-500 hover:bg-violet-600">
+                Start Journaling
+              </Button>
+            </Link>
+          </div>
+        </div>
+
         {/* Quick tip */}
-        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-primary/10 to-warm/10 border border-primary/20">
+        <div className="mt-6 p-6 rounded-2xl bg-gradient-to-r from-primary/10 to-warm/10 border border-primary/20">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center text-primary-foreground shrink-0">
               <Lightbulb className="w-5 h-5" />
