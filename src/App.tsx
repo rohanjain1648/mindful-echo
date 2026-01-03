@@ -18,6 +18,7 @@ import TaskAnchoringPage from "./pages/TaskAnchoringPage";
 import BrainDumpPage from "./pages/BrainDumpPage";
 import JournalPage from "./pages/JournalPage";
 import ToolkitPage from "./pages/ToolkitPage";
+import FocusTimerPage from "./pages/FocusTimerPage";
 import ModerationDashboard from "./pages/ModerationDashboard";
 import AuthPage from "./pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/brain-dump" element={<BrainDumpPage />} />
             <Route path="/journal" element={<JournalPage />} />
             <Route path="/toolkit" element={<ToolkitPage />} />
+            <Route path="/focus-timer" element={<FocusTimerPage />} />
             <Route path="/moderation" element={<ModerationDashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />

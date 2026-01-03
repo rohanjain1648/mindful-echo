@@ -16,7 +16,8 @@ import {
   Star,
   CheckCircle2,
   Flame,
-  BookOpen
+  BookOpen,
+  Timer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -393,8 +394,28 @@ export default function ToolkitPage() {
           </TabsContent>
         </Tabs>
 
+        {/* Focus Timer CTA */}
+        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+              <Timer className="w-5 h-5 text-orange-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-foreground mb-1">Focus Timer</h4>
+              <p className="text-muted-foreground text-sm">
+                Pomodoro technique with ambient sounds designed for ADHD focus. Work in focused bursts with built-in breaks.
+              </p>
+            </div>
+            <Link to="/focus-timer">
+              <Button variant="default" size="sm" className="shrink-0 bg-orange-500 hover:bg-orange-600">
+                Start Timer
+              </Button>
+            </Link>
+          </div>
+        </div>
+
         {/* Journal CTA */}
-        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
+        <div className="mt-4 p-6 rounded-2xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
               <BookOpen className="w-5 h-5 text-violet-400" />
